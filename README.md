@@ -32,48 +32,94 @@ Set up transparent proxy on Xiaomi/AX3600 routers (OpenWrt-based MiWiFi firmware
 │  │  xray Routing                                                  │  │
 │  │                                                                │  │
 │  │  SNI sniffing → Domain/IP matching                             │  │
-│  │    ├─ AI domains → VLESS+WS+TLS proxy (jp.xlin.eu.cc:443)     │  │
+│  │    ├─ AI domains → VLESS+WS+TLS proxy (YOUR_SERVER:443)       │  │
 │  │    └─ Other → Direct (freedom outbound)                       │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
+> **中文版**: [README.zh.md](README.zh.md)
+
 ## Prerequisites
 
-- **Router**: Xiaomi AX3600 / AX1800 / AX3200 / AX9000 with MiWiFi OpenWrt-based firmware
-- **SSH access**: Enabled on the router (`root@192.168.31.1`)
-- **Docker**: Running on the router (MiWiFi Docker plugin)
-- **Docker container**: OpenWrt-based container with `--network host --privileged`
-- **Proxy subscription**: A VLESS+WS+TLS proxy URL (e.g., from a proxy provider)
+- **Router**: Xiaomi AX3600 / AX1800 / AX3200 / AX9000 with MiWiFi OpenWrt-based firmware (SSH enabled)
+- **Docker**: Running on the router (`/mnt/docker_disk/mi_docker/docker-binaries/docker`)
+- **Docker container**: OpenWrt-based container with `--network host --privileged` flags
+- **Proxy subscription**: A VLESS+WS+TLS proxy URL (e.g., `vless://UUID@SERVER:PORT?path=/&host=SERVER#name`)
+
+> If SSH is not enabled, activate it via the official MiWiFi method (bind your MiWiFi account to get the root password).
 
 ## Quick Start
 
-### 1. One-Click Setup
+### 1. Container Setup (one-time)
 
 ```bash
-# From a machine with SSH access to the router
-bash <(curl -sL https://raw.githubusercontent.com/agooxo-puss/xiaomi-tproxy/main/scripts/setup.sh)
-```
-
-### 2. Manual Setup
-
-```bash
-# Check Docker
 ssh root@192.168.31.1
 DOCKER=/mnt/docker_disk/mi_docker/docker-binaries/docker
-$DOCKER ps
 
-# Copy xray config into container
-$DOCKER cp xray-config.json openwrt:/etc/xray/config.json
+# Create the container
+$DOCKER run -d \
+  --name openwrt \
+  --network host \
+  --privileged \
+  --pid host \
+  --ipc host \
+  --restart always \
+  openwrt/rootfs:latest
 
-# Install xray-core (if not installed)
+# Install xray-core inside the container
 $DOCKER exec openwrt opkg update
 $DOCKER exec openwrt opkg install xray-core
 
+# Verify xray is installed
+$DOCKER exec openwrt xray version
+```
+
+> If `opkg update` fails due to outdated feeds, download xray binary directly:
+> ```bash
+> $DOCKER exec openwrt wget -O /tmp/xray.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-arm64.zip
+> $DOCKER exec openwrt unzip -d /usr/bin /tmp/xray.zip xray
+> $DOCKER exec openwrt chmod +x /usr/bin/xray
+> ```
+
+### 2. Configure xray
+
+Edit `config/xray-config.json` with your VLESS node details, then deploy:
+
+```bash
+# Copy config into container
+$DOCKER cp config/xray-config.json openwrt:/etc/xray/config.json
+
+# Verify
+$DOCKER exec openwrt ls -la /etc/xray/config.json
+```
+
+Or use the interactive setup script which parses a VLESS URL:
+
+```bash
+sh scripts/setup.sh
+# Paste your vless://UUID@SERVER:PORT?path=/... URL when prompted
+```
+
+### 3. Start and Verify xray
+
+```bash
 # Start xray
 $DOCKER exec -d openwrt xray run -c /etc/xray/config.json
+sleep 2
 
-# Apply iptables
+# Verify it's listening
+$DOCKER exec openwrt netstat -tlnp | grep xray
+# Should show: LISTEN :::12346
+
+# Test the proxy node works (check server location)
+$DOCKER exec openwrt sh -c "curl -s --max-time 10 https://ipinfo.io/json" | grep -E "ip|country|city"
+# Should show your proxy server's IP and location (must be US/JP/EU for Claude)
+```
+
+### 4. Apply iptables Rules
+
+```bash
 iptables -t nat -N XRAY 2>/dev/null
 iptables -t nat -F XRAY 2>/dev/null
 iptables -t nat -A XRAY -d 192.168.31.0/24 -j RETURN
@@ -83,15 +129,31 @@ iptables -t nat -A PREROUTING -p tcp -j XRAY
 iptables -I FORWARD -p udp --dport 443 -j DROP
 ```
 
-### 3. Verify
+### 5. Enable on Reboot
+
+Add to `/etc/rc.local` (see `config/rc.local` for full template):
 
 ```bash
-# On the router
-docker exec openwrt netstat -tlnp | grep xray
-iptables -t nat -L XRAY -n -v
+$DOCKER exec openwrt xray run -c /etc/xray/config.json &
+sleep 3
+iptables -t nat -N XRAY 2>/dev/null
+iptables -t nat -F XRAY 2>/dev/null
+iptables -t nat -A XRAY -d 192.168.31.0/24 -j RETURN
+iptables -t nat -A XRAY -p tcp --dport 80 -j REDIRECT --to-ports 12346
+iptables -t nat -A XRAY -p tcp --dport 443 -j REDIRECT --to-ports 12346
+iptables -t nat -A PREROUTING -p tcp -j XRAY
+iptables -I FORWARD -p udp --dport 443 -j DROP
+```
 
-# On any WiFi device - should show proxy server IP
+### 6. Verify from WiFi Device
+
+```bash
+# Should show your proxy server IP (not your home WAN IP)
 curl https://ip.sb
+
+# AI services should load
+curl -I https://chatgpt.com
+curl -I https://claude.ai
 ```
 
 ## Configuration
@@ -224,15 +286,78 @@ Xiaomi routers with Qualcomm chipsets use hardware acceleration (ECM/NSS) that c
 cat /etc/config/ecm  # Check if acceleration_engine is enabled
 ```
 
-### "Claude only available in certain regions"
+### Docker binary not found
 
-This means the proxy server IP is geolocated to a region where Claude isn't available. Check:
+The default path is `/mnt/docker_disk/mi_docker/docker-binaries/docker`. Search for it:
 
 ```bash
-curl --socks5-hostname 127.0.0.1:12347 https://ipinfo.io/json
+find / -name docker -type f 2>/dev/null
 ```
 
-The proxy server must be in a supported region (US, JP, UK, EU, etc.). Change your proxy subscription if needed.
+If it's in your PATH already, just use `docker` directly.
+
+### VLESS URL not parsed correctly
+
+The setup script accepts URLs in this format:
+
+```
+vless://UUID@SERVER:PORT?path=/somepath&host=SERVER.com#name
+```
+
+Manually extract values if parsing fails:
+
+| Field | How to find | Example |
+|-------|-------------|---------|
+| UUID | After `vless://`, before `@` | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
+| Server | After `@`, before `:` | `your-server.com` |
+| Port | After `:`, before `/` | `443` |
+| Path | After `path=` | `/` (or `/websocket`) |
+| Host | After `host=` | Usually same as Server |
+
+Then edit `config/xray-config.json` directly.
+
+### xray config JSON errors
+
+```bash
+# Validate syntax
+$DOCKER exec openwrt xray run -c /etc/xray/config.json
+# Errors print to stdout
+
+# Common issues:
+# - Trailing comma after last array element
+# - Unescaped quotes in heredoc
+# - Wrong server address / port
+```
+
+### "Claude only available in certain regions"
+
+This means the proxy server IP is geolocated to a region where Claude isn't available.
+
+**Test with a SOCKS port (temporary):**
+
+Add a SOCKS inbound to your xray config for testing:
+
+```json
+{
+  "port": 12347,
+  "protocol": "socks",
+  "settings": { "auth": "noauth", "udp": true },
+  "tag": "socks-test"
+}
+```
+
+Then restart xray and test:
+
+```bash
+$DOCKER exec openwrt killall xray
+$DOCKER exec -d openwrt xray run -c /etc/xray/config.json
+sleep 2
+$DOCKER exec openwrt sh -c "curl -s --socks5-hostname 127.0.0.1:12347 https://ipinfo.io/json" | grep -E "ip|country|city"
+```
+
+If `country` is not `US`, `JP`, `GB`, `KR`, or an EU country, your proxy server is in an unsupported region. Change your proxy subscription.
+
+(Remove the SOCKS inbound after testing - it's an open proxy otherwise.)
 
 ### Active xray connections show but no data transfer
 

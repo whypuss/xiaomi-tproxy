@@ -32,7 +32,7 @@ iPhone/PC → Router(iptables REDIRECT) → xray:12346 → SNI sniffing
 
 ```bash
 # Clone and deploy
-git clone https://github.com/agooxo-puss/xiaomi-tproxy.git
+git clone https://github.com/whypuss/xiaomi-tproxy.git
 cd xiaomi-tproxy
 
 # Copy config, edit with your VLESS details
