@@ -202,6 +202,76 @@ exit
 }
 ```
 
+> **完整設定檔請參考**: [`config/xray-config.json`](config/xray-config.json)
+
+### 🔑 xray 配置關鍵細節（成敗在此）
+
+以下是讓整個透明代理正常運作的**核心設定**，缺一不可：
+
+#### 1. `followRedirect: true`（透明代理的靈魂）
+
+```json
+"settings": { "network": "tcp", "followRedirect": true }
+```
+
+- **必須 = true**，xray 才會接受 iptables REDIRECT 過來的流量
+- 如果漏掉這個，xray 只接收「直接連到他」的流量，redirect 進來的通通被丟棄
+- 搭配 `"network": "tcp"` 限制只收 TCP（UDP 不需要）
+
+#### 2. `sniffing` + `destOverride`（SNI 嗅探的關鍵）
+
+```json
+"sniffing": { "enabled": true, "destOverride": ["http", "tls"] }
+```
+
+- REDIRECT 之後，xray 收到的目標 IP 是**路由器的 IP（192.168.31.1）**，不是原始域名
+- **SNI 嗅探**從 TLS handshake 中提取原始域名（如 `chatgpt.com`），才能做路由判斷
+- `"http"` 覆蓋明文 HTTP 的 Host header
+- `"tls"` 覆蓋 HTTPS 的 SNI 欄位
+- **如果關掉 sniffing → 所有流量都無法匹配域名規則 → 全部走 direct**
+
+#### 3. `domainStrategy: "IPOnDemand"`（IP 路由的後備）
+
+```json
+"routing": { "domainStrategy": "IPOnDemand", "rules": [...] }
+```
+
+- 部分連線可能無法被 SNI 嗅探（如 HTTP/2 的 TLS 早傳、某些非標準客戶端）
+- `IPOnDemand` 讓 xray 在域名規則無法匹配時，嘗試解析 IP 並比對 IP 規則
+- 替代值 `AsIs` 不解析 IP，`IPIfNonMatch` 會積極解析所有未匹配域名（效能較差）
+
+#### 4. 規則順序：先 proxy 後 direct（不可反過來）
+
+```json
+"rules": [
+  { "domain": [...], "outboundTag": "proxy" },   // 先匹配代理
+  { "network": "tcp", "outboundTag": "direct" }  // 最後全部直連
+]
+```
+
+- xray **從上到下比對**，第一個匹配的規則決定路由
+- proxy 規則放前面 → AI 域名先被攔截走代理
+- `network: tcp` 放最後 → 沒匹配到的 TCP 全部直連
+- **如果 proxy 規則放後面，所有流量都會先被 direct 匹配到 → 等於沒代理**
+
+#### 5. VLESS 出口配置確認
+
+| 欄位 | 常見陷阱 | 正確設定 |
+|------|---------|---------|
+| `"encryption": "none"` | 忘了加或拼錯 | VLESS 不需要 encryption |
+| `"security": "tls"` | 用 `xtls` 但伺服器不支援 | 確認伺服器支援的協定 |
+| `"serverName"` | 和 `address` 不一致 | 必須與你的代理域名一致 |
+| `"allowInsecure": false` | 為了除錯設 true | 正式用 false，避免 MITM |
+
+#### 6. 為什麼沒有 SOCKS inbound？
+
+最終成功配置**只保留 dokodemo-door inbound**，SOCKS 測試埠已移除：
+- 透明代理只需要 REDIRECT inbound，不需要對外開 SOCKS
+- SOCKS 埠是多一個攻擊面
+- 如果需測試，可臨時加 SOCKS inbound，測完就關
+
+> 💡 **除錯口訣**：流量進不來 → 檢查 `followRedirect`；域名分不清 → 檢查 `sniffing`；路由走不對 → 檢查規則順序。
+
 也可以使用 setup.sh 一鍵安裝，它會自動解析 VLESS URL：
 
 ```bash

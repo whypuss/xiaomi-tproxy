@@ -143,6 +143,74 @@ sh scripts/setup.sh
 # Paste your vless://UUID@SERVER:PORT?path=/... URL when prompted
 ```
 
+### 🔑 Critical xray Config Details
+
+These settings are **essential** — miss any one and transparent proxy won't work:
+
+#### 1. `followRedirect: true` (the soul of transparent proxy)
+
+```json
+"settings": { "network": "tcp", "followRedirect": true }
+```
+
+- **Must be `true`** — xray only accepts traffic that was redirected to it via iptables
+- Without this, redirected packets are silently dropped
+- `"network": "tcp"` restricts to TCP only (UDP not needed for this setup)
+
+#### 2. `sniffing` + `destOverride` (domain detection via SNI)
+
+```json
+"sniffing": { "enabled": true, "destOverride": ["http", "tls"] }
+```
+
+- After REDIRECT, xray sees destination IP = **router's IP (192.168.31.1)**, not the original domain
+- **SNI sniffing** extracts the original domain (e.g., `chatgpt.com`) from the TLS handshake
+- `"http"` overrides with plaintext HTTP Host header
+- `"tls"` overrides with TLS SNI field
+- **Without sniffing → no domain-based routing works → all traffic goes direct**
+
+#### 3. `domainStrategy: "IPOnDemand"` (IP routing fallback)
+
+```json
+"routing": { "domainStrategy": "IPOnDemand", "rules": [...] }
+```
+
+- Some connections can't be SNI-sniffed (HTTP/2 early data, non-standard clients)
+- `IPOnDemand` resolves domain to IP for IP-rule matching when SNI fails
+- Alternatives: `AsIs` (no IP resolution), `IPIfNonMatch` (more aggressive, worse perf)
+
+#### 4. Rule order: proxy first, direct last (critical!)
+
+```json
+"rules": [
+  { "domain": [...], "outboundTag": "proxy" },   // match proxy first
+  { "network": "tcp", "outboundTag": "direct" }  // catch-all direct last
+]
+```
+
+- xray evaluates **top-to-bottom**, first match wins
+- Proxy rules first → AI domains get intercepted
+- `network: tcp` last → everything unmatched goes direct
+- **Reversed order = all traffic matches direct first → no proxy at all**
+
+#### 5. VLESS outbound checklist
+
+| Field | Common Pitfall | Correct Setting |
+|-------|---------------|-----------------|
+| `"encryption": "none"` | Misspelled or missing | VLESS needs no encryption |
+| `"security": "tls"` | Using `xtls` server doesn't support | Match server protocol |
+| `"serverName"` | Mismatch with `address` | Must match your proxy domain |
+| `"allowInsecure": false` | Set to true for debugging | Keep false in production |
+
+#### 6. Why no SOCKS inbound?
+
+The final config has **only dokodemo-door inbound** (SOCKS port removed):
+- Transparent proxy only needs REDIRECT inbound, no public SOCKS port
+- SOCKS is an extra attack surface
+- For testing, temporarily add a SOCKS inbound, remove when done
+
+> 💡 **Debug mantra**: traffic not arriving → check `followRedirect`; domains not routing → check `sniffing`; wrong routing → check rule order.
+
 ### 3. Start and Verify xray
 
 ```bash
