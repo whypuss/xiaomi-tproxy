@@ -48,6 +48,52 @@
 
 > 如果還沒開啟 SSH，請參考小米路由器開啟 SSH 的官方方法（綁定 MiWiFi 帳號後可取得 root 密碼）。
 
+## 替代方案：PassWall 2（LuCI 圖形介面）
+
+> 如果不想手動編輯 JSON 設定檔，可以在 OpenWrt 容器內安裝 **PassWall 2**，用 Web 圖形介面管理代理節點和路由規則。xray 仍是後端引擎。
+
+### 安裝 PassWall 2
+
+```bash
+# 容器內安裝
+$DOCKER exec openwrt sh
+opkg update
+opkg install luci-app-passwall2 luci-i18n-passwall2-zh-cn
+
+# 重啟 uhttpd（LuCI Web 介面）
+/etc/init.d/uhttpd restart
+exit
+
+# 容器外：讓容器內 LuCI 可以在主路由 80 埠共存
+# 方法 1：將容器 LuCI 綁到不同埠（如 8080）
+$DOCKER exec openwrt uci set uhttpd.main.listen_http='0.0.0.0:8080'
+$DOCKER exec openwrt uci commit uhttpd
+$DOCKER exec openwrt /etc/init.d/uhttpd restart
+
+# 方法 2：直接在主路由瀏覽器開啟
+# http://192.168.31.1:8080/cgi-bin/luci
+
+# 登入後 → 服務 → PassWall 2
+# 填入你的 VLESS 節點資訊，開啟「自動切換」
+# 啟用後 PassWall 2 會接管 iptables 規則
+```
+
+### PassWall 2 vs 純 xray 對比
+
+| | PassWall 2 | 純 xray（本教學預設） |
+|--|-----------|---------------------|
+| 設定方式 | Web GUI（LuCI） | 手動編輯 JSON |
+| 節點管理 | 內建，支援訂閱更新 | 手動編輯 config.json |
+| 路由規則 | 內建規則編輯器 | 手動編輯 routing 段 |
+| iptables | 自動管理（需容器有 NET_ADMIN） | 主路由手動設定 |
+| 穩定性 | 依賴 luci + passwall 版本 | 只有 xray 一個 process |
+| 路由規則可讀性 | 網頁 checkbox + 輸入框 | 直接看 JSON |
+
+> **本教學採用的方案**：純 xray + 主路由 iptables。原因：
+> 1. PassWall 2 的 iptables 自動管理在容器內有權限問題（`xtables lock` I/O error）
+> 2. 純 xray 的設定更精簡，除錯更容易
+> 3. 本教學的 iptables 規則只做 REDIRECT，沒有複雜 NAT，手動管理很簡單
+
 ## 完整安裝步驟
 
 ### 步驟 1：建立 Docker 容器
@@ -313,35 +359,104 @@ $DOCKER exec openwrt grep "-> direct" /tmp/debug.log   # 應該看到直連路�
 
 ## 路由規則說明
 
-```
-keyword:chatgpt       → 走代理   (域名含有 "chatgpt" 的都走)
-keyword:claude        → 走代理   (域名含有 "claude")
-keyword:anthropic     → 走代理   (域名含有 "anthropic")
-keyword:openai        → 走代理   (域名含有 "openai")
-keyword:google-ai     → 走代理   (域名含有 "google-ai")
-keyword:gemini        → 走代理   (域名含有 "gemini")
+> ⚠️ **規則評估順序：從上到下，先匹配先走。** 一旦某一條規則匹配成功，後面的規則就不會評估了。
+> 所以 `keyword` 規則要放前面（廣泛匹配），`domain` 規則放中間（精確匹配），`network: tcp` 放最後（全部直連）。
 
-domain:chatgpt.com    → 走代理   (精確匹配 + 子域名)
-domain:openai.com     → 走代理
-domain:claude.ai      → 走代理
-domain:anthropic.com  → 走代理
-domain:platform.claude.ai → 走代理
-domain:code.claude.ai → 走代理
-domain:api.anthropic.com  → 走代理
-domain:aistudio.google.com → 走代理
-domain:googleapis.com → 走代理   (Claude App 依賴 Google API)
-domain:gemini.google.com  → 走代理
-domain:deepseek.com   → 走代理
-domain:perplexity.ai  → 走代理
-domain:copilot.microsoft.com → 走代理
-domain:x.com          → 走代理
-domain:grok.com       → 走代理
-domain:notebooklm.google.com → 走代理
-domain:ip.sb          → 走代理   (用來確認代理 IP)
-domain:ipinfo.io      → 走代理   (用來確認代理 IP)
+### 規則匹配行為
 
-network: tcp          → 直連     (以上都沒匹配到的 TCP 全部直連)
+| 格式 | 範例 | 匹配行為 | 匹配「claude.ai」？ | 匹配「api.claude.ai」？ | 匹配「fake-claude.ai」？ |
+|------|------|----------|---------------------|------------------------|-------------------------|
+| `keyword:claude` | `keyword:claude` | **子字串匹配** — 域名只要包含這個字串就匹配 | ✅ | ✅ | ✅ |
+| `domain:claude.ai` | `domain:claude.ai` | **域名尾綴匹配** — 域名結尾等於該字串或 `.該字串` | ✅ | ✅ | ❌ (`fake-claude.ai` 結尾是 `de.ai`，不是 `claude.ai`) |
+| `domain:.claude.ai` | `domain:.claude.ai` | **子域名匹配** — 必須是 `.claude.ai` 結尾（不含裸域名） | ❌ | ✅ | ❌ |
+| `full:claude.ai` | `full:claude.ai` | **完全匹配** — 必須一模一樣 | ✅ | ❌ | ❌ |
+| `regexp:^claude` | `regexp:^claude` | **正則表達式** | ✅ | ✅ | ❌ |
+| 裸字串 `claude.ai` | `claude.ai` | 同 `domain:` — 域名尾綴匹配 | ✅ | ✅ | ❌ |
+
+### 為什麼用 `keyword` + `domain` 混合？
+
+AI 服務通常使用大量 CDN 和 API 子域名，例如：
+- `api.anthropic.com`（Claude API）— 被 `keyword:anthropic` 或 `domain:anthropic.com` 匹配
+- `api.openai.com`（OpenAI API）— 被 `keyword:openai` 或 `domain:api.openai.com` 匹配
+- `openaicom.imgix.net`（OpenAI CDN）— 被 `keyword:openai` 匹配
+- `googleapis.com`（Google API，Claude App 依賴）— 被 `domain:googleapis.com` 匹配
+
+`keyword` 規則是安全網，確保**任何**包含關鍵字的 domain 都走代理，不怕漏掉未知的子域名。
+
+> **⚠️ 注意**：`keyword` 是子字串匹配，`keyword:claude` 也會匹配 `malicious-claude-phishing.com`。但在家庭路由器環境下，這不是問題。
+
+### 完整規則列表
+
+規則順序（優先級從高到低）：
+
 ```
+第 1 層：keyword 廣泛匹配（涵蓋所有可能相關的域名）
+─────────────────────────────────────────────
+keyword:chatgpt       → 走代理   任何含有 "chatgpt" 的域名
+keyword:claude        → 走代理   任何含有 "claude" 的域名
+keyword:anthropic     → 走代理   任何含有 "anthropic" 的域名
+keyword:openai        → 走代理   任何含有 "openai" 的域名
+keyword:google-ai     → 走代理   任何含有 "google-ai" 的域名
+keyword:gemini        → 走代理   任何含有 "gemini" 的域名
+
+第 2 層：domain 精確匹配（特定服務的主要域名 + 子域名）
+─────────────────────────────────────────────
+domain:chatgpt.com         → 走代理   ChatGPT 網頁
+domain:openai.com          → 走代理   OpenAI 網站
+domain:api.openai.com      → 走代理   OpenAI API
+domain:openaicom.imgix.net → 走代理   OpenAI CDN 圖片
+domain:claude.ai           → 走代理   Claude 網頁
+domain:platform.claude.ai  → 走代理   Claude 開發者平台
+domain:code.claude.ai      → 走代理   Claude Code
+domain:anthropic.com       → 走代理   Anthropic 官網
+domain:api.anthropic.com   → 走代理   Claude API（App 串接用）
+domain:aistudio.google.com → 走代理   Google AI Studio
+domain:ai.google.dev       → 走代理   Google AI 開發者
+domain:makersuite.google.com → 走代理  Google MakerSuite
+domain:googleapis.com      → 走代理   Google API（Claude App 依賴）
+domain:bard.google.com     → 走代理   Bard
+domain:gemini.google.com   → 走代理   Gemini 網頁
+domain:copilot.microsoft.com → 走代理  Microsoft Copilot
+domain:deepseek.com        → 走代理   DeepSeek
+domain:perplexity.ai       → 走代理   Perplexity
+domain:x.com               → 走代理   X (Twitter) Grok
+domain:grok.com            → 走代理   Grok
+domain:notebooklm.google.com → 走代理  NotebookLM
+domain:ip.sb               → 走代理   查詢代理 IP
+domain:ipinfo.io           → 走代理   查詢代理 IP
+
+第 3 層：全部直連（無條件匹配所有 TCP）
+─────────────────────────────────────────────
+network: tcp          → 直連     以上都沒匹配到的 TCP 全部直連
+```
+
+### 流程圖
+
+```
+使用者連線 chatgpt.com:443
+    ↓
+iptables REDIRECT → xray:12346
+    ↓
+xray SNI 嗅探 → 取得域名 "chatgpt.com"
+    ↓
+匹配 keyword:chatgpt?  → 是 → 走代理 ✓
+    ↓（如果沒有 keyword 規則）
+匹配 domain:chatgpt.com? → 是 → 走代理 ✓
+    ↓（如果都不匹配）
+network: tcp → 直連
+```
+
+### xray 規則 vs Clash/ShellCrash 規則對照
+
+| xray | Clash/ShellCrash | 說明 |
+|------|-----------------|------|
+| `keyword:xxx` | `DOMAIN-KEYWORD,xxx` | 子字串匹配 |
+| `domain:xxx` | `DOMAIN-SUFFIX,xxx` | 域名尾綴 + 子域名 |
+| `full:xxx` | `DOMAIN,xxx` | 完全匹配 |
+| `regexp:xxx` | `DOMAIN-REGEX,xxx` | 正則表達式 |
+| `geosite:xxx` | `GEOSITE,xxx` | geosite 分類 |
+| `ip:1.2.3.4` | `IP-CIDR,1.2.3.4/32` | IP 匹配 |
+| `network:tcp` | `MATCH` | 全部匹配 |
 
 ### 如何新增域名
 
@@ -366,8 +481,8 @@ $DOCKER exec -d openwrt xray run -c /etc/xray/config.json
 
 ```
 xiaomi-tproxy/
-├── README.md                    # 英文文件
-├── README.zh.md                 # 中文文件（本檔案）
+├── README.md                    # 中文（預設）
+├── README.en.md                 # 英文
 ├── config/
 │   ├── xray-config.json         # xray 設定檔（需修改後使用）
 │   └── rc.local                 # /etc/rc.local 重啟持久化範本

@@ -40,7 +40,7 @@ Set up transparent proxy on Xiaomi/AX3600 routers (OpenWrt-based MiWiFi firmware
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-> **中文版**: [README.zh.md](README.zh.md)
+> **中文版**: [README.md](README.md)
 
 ## Prerequisites
 
@@ -50,6 +50,46 @@ Set up transparent proxy on Xiaomi/AX3600 routers (OpenWrt-based MiWiFi firmware
 - **Proxy subscription**: A VLESS+WS+TLS proxy URL (e.g., `vless://UUID@SERVER:PORT?path=/&host=SERVER#name`)
 
 > If SSH is not enabled, activate it via the official MiWiFi method (bind your MiWiFi account to get the root password).
+
+## Alternative: PassWall 2 (LuCI GUI)
+
+> If you prefer a web interface over editing JSON, install **PassWall 2** inside the OpenWrt container. xray is still the backend engine.
+
+### Install PassWall 2
+
+```bash
+# Inside container
+$DOCKER exec openwrt sh
+opkg update
+opkg install luci-app-passwall2 luci-i18n-passwall2-zh-cn
+/etc/init.d/uhttpd restart
+exit
+
+# Expose container LuCI on a different port (8080) to avoid conflict with host port 80
+$DOCKER exec openwrt uci set uhttpd.main.listen_http='0.0.0.0:8080'
+$DOCKER exec openwrt uci commit uhttpd
+$DOCKER exec openwrt /etc/init.d/uhttpd restart
+
+# Open in browser
+# http://192.168.31.1:8080/cgi-bin/luci
+# → Services → PassWall 2 → enter your VLESS node → enable
+```
+
+### PassWall 2 vs Pure xray
+
+| | PassWall 2 | Pure xray (this guide) |
+|--|-----------|----------------------|
+| Setup | Web GUI (LuCI) | Manual JSON editing |
+| Node management | Built-in, supports subscription updates | Manual config.json editing |
+| Routing rules | Built-in rule editor | Manual routing section editing |
+| iptables | Auto-managed (requires NET_ADMIN in container) | Manual on host |
+| Stability | Depends on luci + passwall version | Single xray process |
+| Rule readability | Web checkboxes + inputs | Raw JSON |
+
+> **This guide uses pure xray + host iptables**. Why:
+> 1. PassWall 2 auto-iptables has permission issues inside Docker (`xtables lock` I/O errors)
+> 2. Pure xray is simpler to debug
+> 3. Our iptables rules are minimal (REDIRECT only), easy to manage manually
 
 ## Quick Start
 
@@ -173,35 +213,101 @@ The xray configuration uses:
 
 ### Routing Rules
 
-```
-keyword:chatgpt       → proxy    (domain contains "chatgpt")
-keyword:claude        → proxy    (domain contains "claude")
-keyword:anthropic     → proxy    (domain contains "anthropic")
-keyword:openai        → proxy    (domain contains "openai")
-keyword:google-ai     → proxy    (domain contains "google-ai")
-keyword:gemini        → proxy    (domain contains "gemini")
+> ⚠️ **Rules are evaluated top-to-bottom, first match wins.** `keyword` rules go first (broad match), `domain` rules in the middle (exact suffix match), `network: tcp` last (catch-all direct).
 
-domain:chatgpt.com    → proxy    (exact + subdomains)
-domain:openai.com     → proxy
-domain:claude.ai      → proxy
-domain:anthropic.com  → proxy
-domain:platform.claude.ai → proxy
-domain:code.claude.ai → proxy
-domain:api.anthropic.com  → proxy
-domain:aistudio.google.com → proxy
-domain:googleapis.com → proxy
-domain:gemini.google.com  → proxy
-domain:deepseek.com   → proxy
-domain:perplexity.ai  → proxy
-domain:copilot.microsoft.com → proxy
-domain:x.com          → proxy
-domain:grok.com       → proxy
-domain:notebooklm.google.com → proxy
-domain:ip.sb          → proxy
-domain:ipinfo.io      → proxy
+#### Rule Matching Behavior
 
-network: tcp          → direct   (catch-all for everything else)
+| Format | Example | Behavior | Matches `claude.ai`? | Matches `api.claude.ai`? | Matches `fake-claude.ai`? |
+|--------|---------|----------|---------------------|------------------------|-------------------------|
+| `keyword:claude` | `keyword:claude` | **Substring** — domain contains this string anywhere | ✅ | ✅ | ✅ |
+| `domain:claude.ai` | `domain:claude.ai` | **Suffix** — domain ends with this string or `.this_string` | ✅ | ✅ | ❌ (ends with `de.ai`) |
+| `domain:.claude.ai` | `domain:.claude.ai` | **Subdomain** — must end with `.claude.ai` (naked domain not matched) | ❌ | ✅ | ❌ |
+| `full:claude.ai` | `full:claude.ai` | **Exact** — must match exactly | ✅ | ❌ | ❌ |
+| `regexp:^claude` | `regexp:^claude` | **Regex** | ✅ | ✅ | ❌ |
+| Bare string `claude.ai` | `claude.ai` | Same as `domain:` — suffix match | ✅ | ✅ | ❌ |
+
+#### Why Mix `keyword` + `domain`?
+
+AI services use many CDN and API subdomains:
+- `api.anthropic.com` (Claude API) — caught by `keyword:anthropic` or `domain:anthropic.com`
+- `api.openai.com` (OpenAI API) — caught by `keyword:openai` or `domain:api.openai.com`
+- `openaicom.imgix.net` (OpenAI CDN) — caught by `keyword:openai`
+- `googleapis.com` (Google API, used by Claude App) — caught by `domain:googleapis.com`
+
+`keyword` rules are the safety net — they catch **any** domain containing the keyword, so you never miss unknown subdomains.
+
+> **⚠️ Note**: `keyword` matches substrings, so `keyword:claude` matches `malicious-claude-phishing.com`. In a home router environment, this is not a concern.
+
+#### Full Rule List (priority order):
+
 ```
+Layer 1: keyword broad matching (catch-all for related domains)
+─────────────────────────────────────────────
+keyword:chatgpt       → proxy   Any domain containing "chatgpt"
+keyword:claude        → proxy   Any domain containing "claude"
+keyword:anthropic     → proxy   Any domain containing "anthropic"
+keyword:openai        → proxy   Any domain containing "openai"
+keyword:google-ai     → proxy   Any domain containing "google-ai"
+keyword:gemini        → proxy   Any domain containing "gemini"
+
+Layer 2: domain suffix matching (specific services + subdomains)
+─────────────────────────────────────────────
+domain:chatgpt.com         → proxy   ChatGPT web
+domain:openai.com          → proxy   OpenAI website
+domain:api.openai.com      → proxy   OpenAI API
+domain:openaicom.imgix.net → proxy   OpenAI CDN images
+domain:claude.ai           → proxy   Claude web
+domain:platform.claude.ai  → proxy   Claude developer platform
+domain:code.claude.ai      → proxy   Claude Code
+domain:anthropic.com       → proxy   Anthropic website
+domain:api.anthropic.com   → proxy   Claude API (app integration)
+domain:aistudio.google.com → proxy   Google AI Studio
+domain:ai.google.dev       → proxy   Google AI developer
+domain:makersuite.google.com → proxy  Google MakerSuite
+domain:googleapis.com      → proxy   Google API (Claude App depends)
+domain:bard.google.com     → proxy   Bard
+domain:gemini.google.com   → proxy   Gemini web
+domain:copilot.microsoft.com → proxy  Microsoft Copilot
+domain:deepseek.com        → proxy   DeepSeek
+domain:perplexity.ai       → proxy   Perplexity
+domain:x.com               → proxy   X (Twitter) Grok
+domain:grok.com            → proxy   Grok
+domain:notebooklm.google.com → proxy  NotebookLM
+domain:ip.sb               → proxy   Check proxy IP
+domain:ipinfo.io           → proxy   Check proxy IP
+
+Layer 3: catch-all direct (unconditionally matches all TCP)
+─────────────────────────────────────────────
+network: tcp          → direct   Everything else goes direct
+```
+
+#### Flow
+
+```
+Client connects to chatgpt.com:443
+    ↓
+iptables REDIRECT → xray:12346
+    ↓
+xray SNI sniffing → domain "chatgpt.com"
+    ↓
+Matches keyword:chatgpt?  → Yes → proxy ✓
+    ↓ (if no keyword rules)
+Matches domain:chatgpt.com? → Yes → proxy ✓
+    ↓ (if nothing matches)
+network: tcp → direct
+```
+
+#### Rule Comparison: xray vs Clash/ShellCrash
+
+| xray | Clash/ShellCrash | Description |
+|------|-----------------|-------------|
+| `keyword:xxx` | `DOMAIN-KEYWORD,xxx` | Substring match |
+| `domain:xxx` | `DOMAIN-SUFFIX,xxx` | Suffix + subdomain match |
+| `full:xxx` | `DOMAIN,xxx` | Exact match |
+| `regexp:xxx` | `DOMAIN-REGEX,xxx` | Regex match |
+| `geosite:xxx` | `GEOSITE,xxx` | Geosite category |
+| `ip:1.2.3.4` | `IP-CIDR,1.2.3.4/32` | IP match |
+| `network:tcp` | `MATCH` | Catch-all |
 
 ### Customizing Domains
 
@@ -229,7 +335,8 @@ docker exec -d openwrt xray run -c /etc/xray/config.json
 
 ```
 xiaomi-tproxy/
-├── README.md                    # This file
+├── README.md                    # Chinese (default)
+├── README.en.md                 # English (this file)
 ├── config/
 │   ├── xray-config.json         # xray configuration (edit this)
 │   └── rc.local                 # /etc/rc.local template for persistence
