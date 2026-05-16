@@ -1,0 +1,83 @@
+{
+  "log": { "loglevel": "warning" },
+  "inbounds": [
+    {
+      "port": 12346,
+      "protocol": "dokodemo-door",
+      "settings": { "network": "tcp", "followRedirect": true },
+      "sniffing": { "enabled": true, "destOverride": ["http", "tls"] },
+      "tag": "transparent"
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [{
+          "address": "YOUR_SERVER_ADDRESS",
+          "port": 443,
+          "users": [{ "id": "YOUR_UUID", "encryption": "none" }]
+        }]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/",
+          "headers": { "Host": "YOUR_SERVER_ADDRESS" }
+        },
+        "tlsSettings": {
+          "serverName": "YOUR_SERVER_ADDRESS",
+          "allowInsecure": false
+        }
+      },
+      "tag": "proxy"
+    },
+    { "protocol": "freedom", "tag": "direct" }
+  ],
+  "routing": {
+    "domainStrategy": "IPOnDemand",
+    "rules": [
+      {
+        "type": "field",
+        "domain": [
+          "keyword:chatgpt",
+          "keyword:claude",
+          "keyword:anthropic",
+          "keyword:openai",
+          "keyword:google-ai",
+          "keyword:gemini",
+          "domain:chatgpt.com",
+          "domain:openai.com",
+          "domain:api.openai.com",
+          "domain:openaicom.imgix.net",
+          "domain:claude.ai",
+          "domain:platform.claude.ai",
+          "domain:code.claude.ai",
+          "domain:anthropic.com",
+          "domain:api.anthropic.com",
+          "domain:aistudio.google.com",
+          "domain:ai.google.dev",
+          "domain:makersuite.google.com",
+          "domain:googleapis.com",
+          "domain:bard.google.com",
+          "domain:gemini.google.com",
+          "domain:copilot.microsoft.com",
+          "domain:deepseek.com",
+          "domain:perplexity.ai",
+          "domain:x.com",
+          "domain:grok.com",
+          "domain:notebooklm.google.com",
+          "domain:ip.sb",
+          "domain:ipinfo.io"
+        ],
+        "outboundTag": "proxy"
+      },
+      {
+        "type": "field",
+        "network": "tcp",
+        "outboundTag": "direct"
+      }
+    ]
+  }
+}

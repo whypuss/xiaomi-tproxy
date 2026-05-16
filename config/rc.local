@@ -1,0 +1,61 @@
+#!/bin/sh
+#
+# rc.local - Xiaomi Router Transparent Proxy Boot Script
+#
+# Place this at /etc/rc.local on the Xiaomi router.
+# It starts xray in the Docker container and applies iptables rules
+# for transparent proxy on every boot.
+#
+# Make sure the Docker container is named "openwrt" and has
+# --network host --privileged flags.
+
+DOCKER=/mnt/docker_disk/mi_docker/docker-binaries/docker
+
+# Start xray in container
+$DOCKER exec openwrt xray run -c /etc/xray/config.json &
+
+# Wait for network interfaces to be ready
+sleep 3
+
+# ============================================================
+# IPv4 Transparent Proxy
+# ============================================================
+
+# Create or reset XRAY chain
+iptables -t nat -N XRAY 2>/dev/null
+iptables -t nat -F XRAY 2>/dev/null
+
+# Skip local LAN traffic (router's own subnet)
+iptables -t nat -A XRAY -d 192.168.31.0/24 -j RETURN
+
+# Redirect HTTP and HTTPS to xray transparent proxy
+iptables -t nat -A XRAY -p tcp --dport 80 -j REDIRECT --to-ports 12346
+iptables -t nat -A XRAY -p tcp --dport 443 -j REDIRECT --to-ports 12346
+
+# Apply to all incoming TCP traffic
+iptables -t nat -A PREROUTING -p tcp -j XRAY
+
+# Block QUIC (UDP 443) to force mobile apps to fall back to TCP,
+# ensuring traffic goes through the transparent proxy
+iptables -I FORWARD -p udp --dport 443 -j DROP
+
+# ============================================================
+# IPv6 Transparent Proxy (optional, for completeness)
+# ============================================================
+
+# Create or reset XRAY6 chain
+ip6tables -t nat -N XRAY6 2>/dev/null
+ip6tables -t nat -F XRAY6 2>/dev/null
+
+# Skip link-local and unique-local addresses
+ip6tables -t nat -A XRAY6 -d fe80::/10 -j RETURN 2>/dev/null
+ip6tables -t nat -A XRAY6 -d fd00::/8 -j RETURN 2>/dev/null
+
+# Redirect all TCP traffic to xray
+ip6tables -t nat -A XRAY6 -p tcp -j REDIRECT --to-ports 12346 2>/dev/null
+ip6tables -t nat -A PREROUTING -p tcp -j XRAY6 2>/dev/null
+
+# Block QUIC for IPv6
+ip6tables -I FORWARD -p udp --dport 443 -j DROP 2>/dev/null
+
+exit 0
