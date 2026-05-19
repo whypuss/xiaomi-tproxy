@@ -9,7 +9,7 @@
 - WiFi clients (`192.168.31.x`) → xray port 12346 → proxy ✅
 - `domainStrategy: "Always"` 確保 IP 級別 routing ✅
 
-**最新 commit:** `760074d` (fix: README/skill/AGENTS.md setsid 全面移除)
+**最新 commit:** `948dc94` (fix: README/英文版 同步更新，明確 setup.sh → deploy.sh 流程)
 
 ---
 
@@ -37,11 +37,51 @@ Mac SSH 登入：**`ssh root@192.168.1.59`**（跨網段，唔用 192.168.31.1�
 
 ---
 
-## 快速部署（一行命令）
+## 部署流程（必讀）
+
+```
+第一步（一次性）：setup.sh  — 喺路由器上行一次，建立完整環境
+         ↓
+第二步（每次更新）：deploy.sh — 喺 Mac 上面行，改 config 之後用
+```
+
+**setup.sh 一次性建立：**
+- Docker + container
+- xray binary (wget)
+- geo files (wget + symlink)
+- iptables 規則
+- rc.local 開機自動
+
+**deploy.sh 之後無限次用：**
+- 讀取 config/xray-config.json
+- base64 + SSH 上傳（唔用 scp）
+- killall xray + 重啟
+
+---
+
+## 快速部署（第二步）
 
 ```bash
 # 喺本機（Mac）執行，自動完成所有步驟
 ./scripts/deploy.sh 192.168.1.59 qwerty66
+```
+
+---
+
+## 完整部署（第一步）
+
+如果你從未喺呢個 AX9000 上面部署過，先行 setup.sh：
+
+```bash
+# SSH 入路由器
+ssh root@192.168.1.59 -o HostKeyAlgorithms=+ssh-rsa
+
+# 喺路由器上面 clone repo
+cd /tmp && git clone https://github.com/whypuss/xiaomi-tproxy.git
+cd xiaomi-tproxy
+
+# 一次性環境搭建
+sh scripts/setup.sh
 ```
 
 ---
