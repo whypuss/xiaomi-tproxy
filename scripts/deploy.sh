@@ -1,13 +1,13 @@
 #!/bin/sh
 #
-# deploy.sh - Deploy xiaomi-tproxy config to router from local machine
+# deploy.sh - 從本機部署 config 到 router
+# Version: 2.0.0 (2025-05-19)
 #
-# Usage:
+# 用法:
 #   ./deploy.sh [router_ip] [ssh_password]
 #
-# Defaults:
-#   router_ip: 192.168.31.1
-#   ssh_password: (prompts if not provided)
+# 注意: Mac + ASUS WiFi → AX9000 跨網段時用 192.168.1.59
+#       同一網段時用 192.168.31.1
 
 set -e
 
@@ -16,37 +16,40 @@ SSH_PASS="${2:-}"
 
 echo "Deploying to router at $ROUTER_IP..."
 
-# Check for sshpass
-if [ ! -x "$(command -v sshpass)" ]; then
-    echo "sshpass not found. Install it: brew install sshpass (macOS) / apt install sshpass (Linux)"
+if ! command -v sshpass >/dev/null 2>&1; then
+    echo "sshpass not found. Install: brew install hudochenkov/sshpass/sshpass"
     exit 1
 fi
 
-# Get password if not provided
 if [ -z "$SSH_PASS" ]; then
     printf "Router SSH password: "
     read -s SSH_PASS
     echo ""
 fi
 
-SSH_OPTS="-o StrictHostKeyChecking=no -oHostKeyAlgorithms=+ssh-rsa -o ConnectTimeout=10"
+SSH_OPTS="-o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa -o ConnectTimeout=10"
 
-# Deploy config
-echo "Deploying xray config..."
-sshpass -p "$SSH_PASS" ssh $SSH_OPTS "root@$ROUTER_IP" '
-    DOCKER=/mnt/docker_disk/mi_docker/docker-binaries/docker
-    mkdir -p /tmp/tproxy-deploy
-' 2>/dev/null
+# 測試連接
+echo "Testing connection..."
+sshpass -p "$SSH_PASS" ssh $SSH_OPTS "root@$ROUTER_IP" "echo ok" >/dev/null 2>&1 || {
+    echo "SSH failed to $ROUTER_IP"
+    exit 1
+}
 
-sshpass -p "$SSH_PASS" scp $SSH_OPTS config/xray-config.json "root@$ROUTER_IP:/tmp/tproxy-deploy/" 2>/dev/null
+# 部署
+echo "Copying config..."
+sshpass -p "$SSH_PASS" scp $SSH_OPTS config/xray-config.json "root@$ROUTER_IP:/tmp/" 2>/dev/null
 
+echo "Restarting xray..."
 sshpass -p "$SSH_PASS" ssh $SSH_OPTS "root@$ROUTER_IP" "
     DOCKER=/mnt/docker_disk/mi_docker/docker-binaries/docker
-    \$DOCKER cp /tmp/tproxy-deploy/xray-config.json openwrt:/etc/xray/config.json
+    \$DOCKER cp /tmp/xray-config.json openwrt:/etc/xray/config.json
     \$DOCKER exec openwrt killall xray 2>/dev/null || true
     sleep 1
-    \$DOCKER exec -d openwrt xray run -c /etc/xray/config.json 2>/dev/null
-    echo 'xray restarted'
+    setsid \$DOCKER exec -d openwrt sh -c 'xray run -c /etc/xray/config.json > /tmp/xray.log 2>&1'
+    sleep 3
+    \$DOCKER exec openwrt cat /tmp/xray.log | tail -5
+    netstat -tnp 2>/dev/null | grep xray | grep ESTABLISHED | grep -v 192.168
 " 2>/dev/null
 
-echo "Deploy complete!"
+echo "Done."

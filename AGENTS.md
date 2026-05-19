@@ -1,59 +1,41 @@
 # xiaomi-tproxy
 
-A transparent proxy system for Xiaomi routers (OpenWrt-based firmware) that routes AI service traffic through a VLESS+WS+TLS proxy using xray-core in Docker.
+xray-core transparent proxy for Xiaomi routers (AX9000/AX3600/AX3200/AX1800).
 
-All WiFi devices on the LAN automatically get proxied access to ChatGPT, Claude, Gemini, DeepSeek, Perplexity, and more - no per-device configuration needed.
+**Version: 2.0.0** (2025-05-19)
 
-## Quick Links
-
-- [README](README.md) - Full documentation
-- [config/xray-config.json](config/xray-config.json) - xray configuration template
-- [config/rc.local](config/rc.local) - Reboot persistence template
-- [scripts/setup.sh](scripts/setup.sh) - One-click setup script
-- [scripts/verify.sh](scripts/verify.sh) - Verification and diagnostics
-
-## Architecture
-
-```
-iPhone/PC → Router(iptables REDIRECT) → xray:12346 → SNI sniffing
-  ├─ AI domains → VLESS proxy (Tokyo/JP)
-  └─ Other → direct
-```
-
-## Prerequisites
-
-- Xiaomi AX3600/AX3200/AX1800/AX9000 with MiWiFi OpenWrt-based firmware
-- SSH enabled on router (root@192.168.31.1)
-- Docker container with `--network host --privileged` flags
-- xray-core installed in container
-- VLESS+WS+TLS proxy subscription
-
-## Quick Start
+## 快速開始
 
 ```bash
-# Clone and deploy
-git clone https://github.com/whypuss/xiaomi-tproxy.git
-cd xiaomi-tproxy
-
-# Copy config, edit with your VLESS details
-vim config/xray-config.json
-
-# Run setup on router
-ssh root@192.168.31.1
-./scripts/setup.sh
+# 部署到 router
+scp -r ./config root@192.168.1.59:/tmp/xiaomi-tproxy/
+ssh root@192.168.1.59
+  cd /tmp/xiaomi-tproxy
+  sh scripts/setup.sh
+  # 貼上 VLESS URL
 ```
 
-## Domain Routing
+## 踩坑紀錄（v2.0.0）
 
-| Group | Domains |
-|-------|---------|
-| OpenAI | chatgpt.com, openai.com, api.openai.com, openaicom.imgix.net |
-| Claude/Anthropic | claude.ai, platform.claude.ai, code.claude.ai, anthropic.com, api.anthropic.com |
-| Google AI | aistudio.google.com, ai.google.dev, makersuite.google.com, googleapis.com, bard.google.com, gemini.google.com |
-| Other AI | copilot.microsoft.com, deepseek.com, perplexity.ai, x.com, grok.com, notebooklm.google.com |
-| IP check | ip.sb, ipinfo.io |
-| Keywords | chatgpt, claude, anthropic, openai, google-ai, gemini |
+- ❌ `openwrt/rootfs:latest` — x86_64 only，ARM64 路由器要 `sulinggg/openwrt:rpi4`
+- ❌ ash shell heredoc 會替換 `$VAR` — 用 `docker cp` 代替
+- ❌ rc.local `&` background — SSH 斷了 xray 也死，要 `setsid`
+- ⚠️ Cloudflare CDN DNS 問題 — container 可能解析到被牆的 IP，試 hardcoded IP
+- ⚠️ Mac ASUS WiFi 跨網段 — SSH 用 `192.168.1.59`，唔係 `192.168.31.1`
 
-## Troubleshooting
+## 架構
 
-See [README.md - Troubleshooting](README.md#troubleshooting) for common issues including QUIC bypass, iptables permissions, and region restrictions.
+```
+WiFi client (31網段) → iptables REDIRECT → xray:12346 → SNI sniffing
+                                                   ├─ AI domains → VLESS proxy
+                                                   └─ other → direct
+```
+
+## 關鍵檔案
+
+- `skill/SKILL.md` — Agent skill（部署流程 + 坑點）
+- `scripts/setup.sh` — 一鍵部署 script
+- `scripts/deploy.sh` — 從本機更新 config
+- `scripts/verify.sh` — 健康檢查
+- `config/xray-config.json` — xray config 範本
+- `config/rc.local` — 開機持久化範本

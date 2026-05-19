@@ -3,6 +3,7 @@
   "inbounds": [
     {
       "port": 12346,
+      "listen": "0.0.0.0",
       "protocol": "dokodemo-door",
       "settings": { "network": "tcp", "followRedirect": true },
       "sniffing": { "enabled": true, "destOverride": ["http", "tls"] },
@@ -14,7 +15,7 @@
       "protocol": "vless",
       "settings": {
         "vnext": [{
-          "address": "YOUR_SERVER_ADDRESS",
+          "address": "YOUR_SERVER_DOMAIN_OR_IP",
           "port": 443,
           "users": [{ "id": "YOUR_UUID", "encryption": "none" }]
         }]
@@ -24,23 +25,24 @@
         "security": "tls",
         "wsSettings": {
           "path": "/",
-          "headers": { "Host": "YOUR_SERVER_ADDRESS" }
+          "headers": { "Host": "YOUR_SERVER_DOMAIN_OR_IP" }
         },
         "tlsSettings": {
-          "serverName": "YOUR_SERVER_ADDRESS",
+          "serverName": "YOUR_SERVER_DOMAIN_OR_IP",
           "allowInsecure": false
         }
       },
       "tag": "proxy"
     },
-    { "protocol": "freedom", "tag": "direct" }
+    { "protocol": "freedom", "tag": "direct" },
+    { "protocol": "block", "tag": "block" }
   ],
   "routing": {
-    "domainStrategy": "IPOnDemand",
     "rules": [
       {
         "type": "field",
-        "domain": [
+        "outboundTag": "proxy",
+        "domains": [
           "keyword:chatgpt",
           "keyword:claude",
           "keyword:anthropic",
@@ -50,34 +52,26 @@
           "domain:chatgpt.com",
           "domain:openai.com",
           "domain:api.openai.com",
-          "domain:openaicom.imgix.net",
           "domain:claude.ai",
           "domain:platform.claude.ai",
-          "domain:code.claude.ai",
           "domain:anthropic.com",
           "domain:api.anthropic.com",
           "domain:aistudio.google.com",
           "domain:ai.google.dev",
-          "domain:makersuite.google.com",
           "domain:googleapis.com",
-          "domain:bard.google.com",
           "domain:gemini.google.com",
+          "domain:bard.google.com",
           "domain:copilot.microsoft.com",
           "domain:deepseek.com",
           "domain:perplexity.ai",
+          "domain:x.ai",
           "domain:x.com",
-          "domain:grok.com",
           "domain:notebooklm.google.com",
           "domain:ip.sb",
           "domain:ipinfo.io"
-        ],
-        "outboundTag": "proxy"
+        ]
       },
-      {
-        "type": "field",
-        "network": "tcp",
-        "outboundTag": "direct"
-      }
+      { "type": "field", "network": "tcp", "outboundTag": "direct" }
     ]
   }
 }
