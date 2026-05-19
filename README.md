@@ -1,7 +1,15 @@
 # AX9000 透明代理部署教程
 
-**適用型號:** 小米 AX9000（Linux 4.9, ARM64, Docker）  
-**最後更新:** 2026-05-19
+**適用型號:** 小米 AX9000（Linux 4.9, ARM64, Docker）<br>
+**最後更新:** 2026-05-19<br>
+**狀態:** ✅ 實測通過 — Xray 透明代理正常運行，WiFi clients 流量行 proxy
+
+**實測確認:**
+- Xray → proxy server (`172.67.144.125:443`) ESTABLISHED ✅
+- WiFi clients (`192.168.31.x`) → xray port 12346 → proxy ✅
+- `domainStrategy: "Always"` 確保 IP 級別 routing ✅
+
+**最新 commit:** `c57baaf`
 
 ---
 
