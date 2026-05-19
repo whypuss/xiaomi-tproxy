@@ -9,7 +9,7 @@
 - WiFi clients (`192.168.31.x`) → xray port 12346 → proxy ✅
 - `domainStrategy: "Always"` 確保 IP 級別 routing ✅
 
-**最新 commit:** `c57baaf`
+**最新 commit:** `760074d` (fix: README/skill/AGENTS.md setsid 全面移除)
 
 ---
 
@@ -122,8 +122,8 @@ ssh root@192.168.1.59 -o HostKeyAlgorithms=+ssh-rsa '
     $DOCKER exec openwrt killall xray 2>/dev/null || true
     sleep 1
 
-    # 用 setsid 啟動，完全 detach from TTY，SSH 斷開後繼續運行
-    $DOCKER exec -d openwrt sh -c "setsid xray run -c /etc/xray/config.json > /tmp/xray.log 2>&1"
+    # 用 docker exec -d 啟動（已 detached，唔需要 setsid）
+    $DOCKER exec -d openwrt xray run -c /etc/xray/config.json >/tmp/xray.log 2>&1 &
 
     # 等 5 秒
     sleep 5
@@ -234,7 +234,7 @@ ash 會替換 heredoc 內的 `${VAR}` 和 `$VAR`。用 `cat > file << "EOF"`（�
 
 ### Q: Xray 重啟後連接断咗？
 
-用 `setsid` 替代 `&` 背景執行。`&` 在 SSH 斷開後會收到 SIGHUP 被 kill，`setsid` 完全 detach from TTY。
+用 `docker exec -d` 代替 `&` 背景執行。`docker exec -d` 本身已 detached from TTY，SSH 斷開後 xray 繼續運行。唔需要 `setsid`（container 冇呢個指令）。
 
 ---
 

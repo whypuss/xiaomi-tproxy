@@ -164,6 +164,7 @@ cat > /tmp/xray_config.json << CONFIGEOF
     { "protocol": "block", "tag": "block" }
   ],
   "routing": {
+    "domainStrategy": "Always",
     "rules": [
       {
         "type": "field",
@@ -238,7 +239,7 @@ info "IPv6 rules applied (best-effort)"
 cat > "$RC_LOCAL" << 'RCEOF'
 #!/bin/sh
 DOCKER=/mnt/docker_disk/mi_docker/docker-binaries/docker
-setsid $DOCKER exec -d openwrt sh -c "xray run -c /etc/xray/config.json > /tmp/xray.log 2>&1"
+$DOCKER exec -d openwrt xray run -c /etc/xray/config.json >/tmp/xray.log 2>&1 &
 sleep 3
 iptables -t nat -N XRAY 2>/dev/null
 iptables -t nat -F XRAY
