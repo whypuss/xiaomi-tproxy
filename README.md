@@ -696,6 +696,26 @@ xray 代理出去的連線（到 `YOUR_SERVER:443`）是從**容器內部發起*
 4. iptables 規則重新套用
 5. 透明代理恢復運作
 
+## 🚀 跨網段 SSH 終極修復教程
+
+> ⚠️ **適用於：** 家中網絡有兩部路由器（上級 ASUS + 下級小米 AX9000），設定靜態路由後斷網 SSH 就 Timeout 的問題。
+>
+> **根本原因：** 上級 ASUS 的 Martian Filter / DoS 防護在處理跨網段流量時，於 ASUS 內部直接 drop 回應封包，小米路由器根本收不到 SYN。
+>
+> **三步永久解鎖：** 👉 [docs/ax9000-ssh-cross-subnet.md](docs/ax9000-ssh-cross-subnet.md)
+
+核心解決方案：
+```bash
+# 防火牆開綠燈
+iptables -I INPUT -s 192.168.1.0/24 -p tcp --dport 22 -j ACCEPT
+
+# 防止回包被 rp_filter 丟棄
+sysctl -w net.ipv4.conf.all.rp_filter=0
+
+# 獨立 SSH 後門（不受原廠斷網機制影響）
+(sleep 15 && dropbear -p 192.168.1.59:22) &
+```
+
 ## License
 
 MIT
