@@ -36,9 +36,14 @@ sshpass -p "$SSH_PASS" ssh $SSH_OPTS "root@$ROUTER_IP" "echo ok" >/dev/null 2>&1
     exit 1
 }
 
-# 部署
-echo "Copying config..."
-sshpass -p "$SSH_PASS" scp $SSH_OPTS config/xray-config.json "root@$ROUTER_IP:/tmp/" 2>/dev/null
+# 部署 - 用 base64 避免 ash heredoc 變量替換
+echo "Copying config via SSH (not scp - router lacks sftp-server)..."
+CONFIG_B64=$(cat config/xray-config.json | base64)
+sshpass -p "$SSH_PASS" ssh $SSH_OPTS "root@$ROUTER_IP" '
+    DOCKER=/mnt/docker_disk/mi_docker/docker-binaries/docker
+    echo "'"$CONFIG_B64"'" | base64 -d > /tmp/xray-config.json
+    $DOCKER cp /tmp/xray-config.json openwrt:/etc/xray/config.json
+'
 
 echo "Restarting xray..."
 sshpass -p "$SSH_PASS" ssh $SSH_OPTS "root@$ROUTER_IP" "
