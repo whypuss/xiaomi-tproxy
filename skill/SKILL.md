@@ -26,14 +26,15 @@ metadata:
 
 ## 已知坑點（部署前必讀）
 
-### 1. Cloudflare CDN DNS 問題 ⚠️ 最關鍵
+### 1. Cloudflare CDN DNS 問題 ⚠️
 ```
 jp.xlin.eu.cc → 172.67.144.125 (Cloudflare CDN)
-                可能被 block 或 DNS 污染
 ```
-- 如果 container 內 `wget jp.xlin.eu.cc` 失敗（Connection refused）
-- 改用 server IP（`nslookup jp.xlin.eu.cc 8.8.8.8` 查眞實 IP）
-- 在 xray config `address` 填 IP，同時 `serverName`/`Host` header 填 domain
+- 呢個係正常！Cloudflare 係 CDN，xray 照樣能建立 VLESS WS TLS 連接
+- `openssl s_client -connect jp.xlin.eu.cc:443` 成功 → TLS 正常，certificate CN = xlin.eu.cc
+- `curl https://jp.xlin.eu.cc` 返回 HTTP 400 → server 可達
+- **唔好胡亂 hardcode IP**，`45.196.233.193` 完全 network unreachable
+- 如果 container 內 `jp.xlin.eu.cc` DNS 解析超時，試 `nslookup jp.xlin.eu.cc 8.8.8.8`
 
 ### 2. ARM64 Image 選錯
 - ❌ `openwrt/rootfs:latest` — x86_64 only，不支援 ARM64

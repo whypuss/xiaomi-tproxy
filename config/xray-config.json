@@ -15,7 +15,7 @@
       "protocol": "vless",
       "settings": {
         "vnext": [{
-          "address": "YOUR_SERVER_DOMAIN_OR_IP",
+          "address": "jp.xlin.eu.cc",
           "port": 443,
           "users": [{ "id": "YOUR_UUID", "encryption": "none" }]
         }]
@@ -25,10 +25,10 @@
         "security": "tls",
         "wsSettings": {
           "path": "/",
-          "headers": { "Host": "YOUR_SERVER_DOMAIN_OR_IP" }
+          "headers": { "Host": "jp.xlin.eu.cc" }
         },
         "tlsSettings": {
-          "serverName": "YOUR_SERVER_DOMAIN_OR_IP",
+          "serverName": "jp.xlin.eu.cc",
           "allowInsecure": false
         }
       },
