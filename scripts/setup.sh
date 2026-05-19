@@ -73,10 +73,17 @@ PRIV=$($DOCKER inspect "$CONTAINER" --format '{{.HostConfig.Privileged}}' 2>/dev
 # ─── Step 3: xray ──────────────────────────────────────────────
 
 echo "[3/7] xray-core..."
-if ! $DOCKER exec "$CONTAINER" which xray >/dev/null 2>&1; then
-    warn "Installing xray-core via opkg..."
-    $DOCKER exec "$CONTAINER" opkg update
-    $DOCKER exec "$CONTAINER" opkg install xray-core
+XRAY_VER=$($DOCKER exec "$CONTAINER" xray version 2>/dev/null | head -1 || echo "")
+if [ -z "$XRAY_VER" ]; then
+    warn "Installing xray-core via wget (opkg may not have xray)..."
+    $DOCKER exec "$CONTAINER" sh -c "
+        cd /tmp
+        wget -q https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-linux-arm64-v8.zip
+        unzip -o Xray-linux-arm64-v8.zip
+        mv xray /usr/bin/xray
+        chmod +x /usr/bin/xray
+        rm -f Xray-linux-arm64-v8.zip
+    "
 fi
 XRAY_VER=$($DOCKER exec "$CONTAINER" xray version 2>/dev/null | head -1 || echo "unknown")
 info "xray: $XRAY_VER"
