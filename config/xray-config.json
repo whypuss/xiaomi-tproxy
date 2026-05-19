@@ -15,9 +15,9 @@
       "protocol": "vless",
       "settings": {
         "vnext": [{
-          "address": "jp.xlin.eu.cc",
+          "address": "[YOUR_SERVER_DOMAIN]",
           "port": 443,
-          "users": [{ "id": "9158ed39-7953-492f-80b7-531c5fa3ceeb", "encryption": "none" }]
+          "users": [{ "id": "[YOUR_UUID]", "encryption": "none" }]
         }]
       },
       "streamSettings": {
@@ -25,10 +25,10 @@
         "security": "tls",
         "wsSettings": {
           "path": "/",
-          "headers": { "Host": "jp.xlin.eu.cc" }
+          "headers": { "Host": "[YOUR_SERVER_DOMAIN]" }
         },
         "tlsSettings": {
-          "serverName": "jp.xlin.eu.cc",
+          "serverName": "[YOUR_SERVER_DOMAIN]",
           "allowInsecure": false
         }
       },

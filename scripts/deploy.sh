@@ -6,7 +6,7 @@
 #   ./deploy.sh [router_ip] [ssh_password]
 #
 # 示例:
-#   ./deploy.sh 192.168.1.59 qwerty66
+#   ./deploy.sh 192.168.1.59 [ROUTER_PASSWORD]
 #
 # 注意: Mac + ASUS WiFi → AX9000 跨網段時用 192.168.1.59
 #       同一網段時用 192.168.31.1
@@ -20,7 +20,7 @@ DOCKER="/mnt/docker_disk/mi_docker/docker-binaries/docker"
 
 usage() {
     echo "用法: $0 [router_ip] [ssh_password]"
-    echo "示例: $0 192.168.1.59 qwerty66"
+    echo "示例: $0 192.168.1.59 [ROUTER_PASSWORD]"
     exit 1
 }
 
