@@ -17,7 +17,7 @@
         "vnext": [{
           "address": "jp.xlin.eu.cc",
           "port": 443,
-          "users": [{ "id": "YOUR_UUID", "encryption": "none" }]
+          "users": [{ "id": "9158ed39-7953-492f-80b7-531c5fa3ceeb", "encryption": "none" }]
         }]
       },
       "streamSettings": {
