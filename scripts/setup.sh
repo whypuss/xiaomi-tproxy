@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # setup.sh - xray transparent proxy 一鍵部署
-# Version: 2.0.0 (2025-05-19)
+# Version: 2.1.0 (2026-05-19)
 #
 # 用法:
 #   scp -r ./config root@192.168.1.59:/tmp/xiaomi-tproxy/
@@ -10,8 +10,9 @@
 #
 # 踩坑紀錄:
 #   - ash shell heredoc 會做 $VAR 替換 → 用 docker cp 代替
-#   - rc.local 用 & background 會甩 → 用 setsid
+#   - rc.local 用 & background 會甩 → 用 docker exec -d（已 detached，唔需要 setsid）
 #   - 錯誤 image openwrt/rootfs → sulinggg/openwrt:rpi4
+#   - geo files 需要下載並 symlink 到 /usr/bin/
 
 set -e
 
@@ -31,7 +32,7 @@ CONFIG_PATH=/etc/xray/config.json
 RC_LOCAL=/etc/rc.local
 
 echo "================================================"
-echo "  xray TProxy 部署腳本 v2.0.0"
+echo "  xray TProxy 部署腳本 v2.1.0"
 echo "================================================"
 echo ""
 
@@ -75,7 +76,7 @@ PRIV=$($DOCKER inspect "$CONTAINER" --format '{{.HostConfig.Privileged}}' 2>/dev
 echo "[3/7] xray-core..."
 XRAY_VER=$($DOCKER exec "$CONTAINER" xray version 2>/dev/null | head -1 || echo "")
 if [ -z "$XRAY_VER" ]; then
-    warn "Installing xray-core via wget (opkg may not have xray)..."
+    warn "Installing xray-core via wget..."
     $DOCKER exec "$CONTAINER" sh -c "
         cd /tmp
         wget -q https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-linux-arm64-v8.zip
@@ -88,9 +89,27 @@ fi
 XRAY_VER=$($DOCKER exec "$CONTAINER" xray version 2>/dev/null | head -1 || echo "unknown")
 info "xray: $XRAY_VER"
 
+# ─── Step 3b: Geo 文件 ────────────────────────────────────────
+echo "[3b/8] Geo 文件..."
+GEO_IP=$($DOCKER exec "$CONTAINER" test -f /usr/bin/geoip.dat && echo ok || echo "")
+GEO_SITE=$($DOCKER exec "$CONTAINER" test -f /usr/bin/geosite.dat && echo ok || echo "")
+if [ "$GEO_IP" != "ok" ] || [ "$GEO_SITE" != "ok" ]; then
+    warn "Downloading geo files..."
+    $DOCKER exec "$CONTAINER" sh -c "
+        cd /tmp
+        wget -q https://github.com/Loyalsoldier/geoip/releases/latest/download/geoip.dat
+        wget -q https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
+        ln -sf /tmp/geoip.dat /usr/bin/geoip.dat
+        ln -sf /tmp/geosite.dat /usr/bin/geosite.dat
+    "
+    info "Geo files downloaded"
+else
+    info "Geo files: present"
+fi
+
 # ─── Step 4: VLESS URL ─────────────────────────────────────────
 
-echo "[4/7] VLESS 配置..."
+echo "[4/8] VLESS 配置..."
 
 # 嘗試讀取已有 config
 if $DOCKER exec "$CONTAINER" test -f "$CONFIG_PATH" 2>/dev/null; then
@@ -127,7 +146,7 @@ fi
 
 # ─── Step 5: 寫 config（用 docker cp，唔用 heredoc）───────────────
 
-echo "[5/7] 寫入 config..."
+echo "[5/8] 寫入 config..."
 
 # 在本機寫 temp config
 cat > /tmp/xray_config.json << CONFIGEOF
@@ -203,13 +222,13 @@ info "Config written to $CONFIG_PATH"
 
 # ─── Step 6: 啟動 xray ─────────────────────────────────────────
 
-echo "[6/7] 啟動 xray..."
+echo "[6/8] 啟動 xray..."
 
 $DOCKER exec "$CONTAINER" killall xray 2>/dev/null || true
 sleep 1
 
-# 用 setsid 確保 daemonize
-$DOCKER exec -d "$CONTAINER" sh -c "xray run -c $CONFIG_PATH > /tmp/xray.log 2>&1"
+# docker exec -d 本身已 detached，唔需要 setsid
+$DOCKER exec -d "$CONTAINER" xray run -c $CONFIG_PATH >/tmp/xray.log 2>&1
 sleep 4
 
 XRAY_PID=$($DOCKER exec "$CONTAINER" pidof xray 2>/dev/null || echo "")
@@ -218,9 +237,9 @@ if [ -z "$XRAY_PID" ]; then
 fi
 info "xray running (PID: $XRAY_PID)"
 
-# ─── Step 7: iptables + 持久化 ─────────────────────────────────
+# ─── Step 8: iptables + 持久化 ─────────────────────────────────
 
-echo "[7/7] iptables 規則..."
+echo "[8/8] iptables 規則..."
 
 # IPv4
 iptables -t nat -N XRAY 2>/dev/null
