@@ -2,14 +2,23 @@
 
 **適用型號:** 小米 AX9000（Linux 4.9, ARM64, Docker）<br>
 **最後更新:** 2026-05-19<br>
-**狀態:** ✅ 實測通過 — Xray 透明代理正常運行，WiFi clients 流量行 proxy
+**狀態:** ✅ 實測通過 — Xray 透明代理正常運行，WiFi clients 流量行 proxy<br>
+**最新 commit:** `3c53c24`
+
+> 🤖 **AI Agent 部署提示詞（複製呢段）：**
+> ```
+> Clone https://github.com/whypuss/xiaomi-tproxy
+> Read README.md (Chinese) or README.en.md (English) first
+> Follow the "部署流程" section — setup.sh first (one time), then deploy.sh
+> Router: root@192.168.1.59
+> ```
+
+---
 
 **實測確認:**
 - Xray → proxy server (`172.67.144.125:443`) ESTABLISHED ✅
 - WiFi clients (`192.168.31.x`) → xray port 12346 → proxy ✅
 - `domainStrategy: "Always"` 確保 IP 級別 routing ✅
-
-**最新 commit:** `948dc94` (fix: README/英文版 同步更新，明確 setup.sh → deploy.sh 流程)
 
 ---
 

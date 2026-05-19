@@ -2,6 +2,14 @@
 
 **Version: 2.1.0** | 2026-05-19
 
+> 🤖 **AI Agent Deployment Prompt (copy this):**
+> ```
+> Clone https://github.com/whypuss/xiaomi-tproxy
+> Read README.md (Chinese) or README.en.md (English) first
+> Follow the "部署流程" section — setup.sh first (one time), then deploy.sh
+> Router: root@192.168.1.59
+> ```
+
 One-command transparent proxy on Xiaomi AX9000/AX3600/AX3200/AX1800 routers. All WiFi devices automatically route AI services through a VLESS+WS+TLS proxy — no per-device setup needed.
 
 ## Features
