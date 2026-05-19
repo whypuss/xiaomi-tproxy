@@ -1,19 +1,30 @@
 #!/bin/sh
 #
 # rc.local - xray transparent proxy auto-start
-# Version: 2.0.0 (2025-05-19)
+# Version: 2.1.0 (2026-05-19)
 #
-# Key: 使用 setsid 代替 & background，確保 SSH 斷開後 xray 繼續運行
+# AX9000 專用：唔使用 setsid，直接用 docker exec -d
+# Docker container init 會處理 orphaned process
 
 DOCKER=/mnt/docker_disk/mi_docker/docker-binaries/docker
 
-# Start xray in container (setsid = 真正 daemonize，SSH 斷了不死)
-setsid $DOCKER exec -d openwrt sh -c "xray run -c /etc/xray/config.json > /tmp/xray.log 2>&1"
+# 等 Docker 啟動
+sleep 15
+
+# 確保 container 運行
+$DOCKER start openwrt 2>/dev/null || true
+sleep 3
+
+# Kill 舊 xray（如有）
+$DOCKER exec openwrt killall xray 2>/dev/null || true
+sleep 1
+
+# 啟動 xray — docker exec -d 本身已 detached，唔需要 setsid
+$DOCKER exec -d openwrt xray run -c /etc/xray/config.json
 
 sleep 3
 
 # ─── IPv4 Transparent Proxy ───────────────────────────────────
-
 iptables -t nat -N XRAY 2>/dev/null
 iptables -t nat -F XRAY
 iptables -t nat -A XRAY -d 192.168.31.0/24 -j RETURN
@@ -24,8 +35,7 @@ iptables -t nat -A PREROUTING -p tcp -j XRAY
 # Block QUIC (UDP 443) — 強制 mobile apps 行 TCP
 iptables -I FORWARD -p udp --dport 443 -j DROP
 
-# ─── IPv6 Transparent Proxy (optional) ──────────────────────────
-
+# ─── IPv6 Transparent Proxy ───────────────────────────────────
 ip6tables -t nat -N XRAY6 2>/dev/null || true
 ip6tables -t nat -F XRAY6 2>/dev/null || true
 ip6tables -t nat -A XRAY6 -d fe80::/10 -j RETURN 2>/dev/null || true

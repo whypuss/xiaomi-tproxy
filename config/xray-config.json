@@ -38,6 +38,7 @@
     { "protocol": "block", "tag": "block" }
   ],
   "routing": {
+    "domainStrategy": "Always",
     "rules": [
       {
         "type": "field",

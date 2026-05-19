@@ -55,12 +55,13 @@ sshpass -p "$SSH_PASS" ssh $SSH_OPTS "root@$ROUTER_IP" '
     $DOCKER exec openwrt killall xray 2>/dev/null; true
     sleep 2
 
-    $DOCKER exec -d openwrt sh -c "setsid xray run -c /etc/xray/config.json > /tmp/xray.log 2>&1"
+    # docker exec -d 本身已 detached，唔需要 setsid/nohup
+    $DOCKER exec -d openwrt xray run -c /etc/xray/config.json >/tmp/xray.log 2>&1
 
-    sleep 6
+    sleep 8
 
     echo "==> xray 啟動 log:"
-    $DOCKER exec openwrt cat /tmp/xray.log | grep -v "^$" | head -6
+    $DOCKER exec openwrt cat /tmp/xray.log 2>/dev/null | grep -v "^$" | head -6
 '
 
 echo ""
