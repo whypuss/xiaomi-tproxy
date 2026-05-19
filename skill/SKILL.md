@@ -54,7 +54,7 @@ ash: /usr/libexec/sftp-server: not found
 - 唔係 `docker`（唔喺 PATH）
 - **解决:** 每次 SSH 後 `DOCKER=/mnt/docker_disk/mi_docker/docker-binaries/docker`
 
-### 10. jp.xlin.eu.cc DNS
+### 10. [YOUR_SERVER_DOMAIN] DNS
 - 解析到 `172.67.144.125`（Cloudflare CDN）— 係正常！
 - xray WebSocket + TLS 通過 Cloudflare CDN 正常連接
 - **唔好** 胡亂 hardcode 其他 IP
@@ -65,7 +65,7 @@ ash: /usr/libexec/sftp-server: not found
 
 ```bash
 cd ~/.kimaki/projects/xiaomi-tproxy
-./scripts/deploy.sh 192.168.1.59 qwerty66
+./scripts/deploy.sh 192.168.1.59 [ROUTER_PASSWORD]
 ```
 
 ## 驗證命令
@@ -86,5 +86,5 @@ netstat -tlnp | grep 12346
 
 編輯 `config/xray-config.json` 的 `domains` 陣列，，然後：
 ```bash
-./scripts/deploy.sh 192.168.1.59 qwerty66
+./scripts/deploy.sh 192.168.1.59 [ROUTER_PASSWORD]
 ```

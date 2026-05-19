@@ -74,7 +74,7 @@ Mac SSH 登入：**`ssh root@192.168.1.59`**（跨網段，唔用 192.168.31.1�
 
 ```bash
 # 喺本機（Mac）執行，自動完成所有步驟
-./scripts/deploy.sh 192.168.1.59 qwerty66
+./scripts/deploy.sh 192.168.1.59 [ROUTER_PASSWORD]
 ```
 
 ---
@@ -203,7 +203,7 @@ ssh root@192.168.1.59 -o HostKeyAlgorithms=+ssh-rsa '
 tcp  0  0  192.168.1.59:4xxxx  172.67.144.125:443  ESTABLISHED  xray
 ```
 
-`172.67.144.125` 係 `jp.xlin.eu.cc` 的 Cloudflare CDN IP，呢個係正常！Xray 通過 Cloudflare CDN 連接代理伺服器，TLS 完整加密。
+`172.67.144.125` 係 `[YOUR_SERVER_DOMAIN]` 的 Cloudflare CDN IP，呢個係正常！Xray 通過 Cloudflare CDN 連接代理伺服器，TLS 完整加密。
 
 ### Step 6：測試透明代理（AI 網站）
 
@@ -267,9 +267,9 @@ RCEOF
 2. 確認 xray 正在運行：`docker exec openwrt ps | grep xray`
 3. 檢查 xray log：`docker exec openwrt cat /tmp/xray.log | grep -i error`
 
-### Q: `jp.xlin.eu.cc` DNS 解析到 `172.67.144.125`，呢個係正常的嗎？
+### Q: `[YOUR_SERVER_DOMAIN]` DNS 解析到 `172.67.144.125`，呢個係正常的嗎？
 
-係正常的。`jp.xlin.eu.cc` 使用 Cloudflare CDN，CDN IP 係 `172.67.144.125`，Xray 通過 WebSocket + TLS 連接呢個 IP，Cloudflare 負責路由到眞實代理伺服器。唔好胡亂 hardcode 其他 IP。
+係正常的。`[YOUR_SERVER_DOMAIN]` 使用 Cloudflare CDN，CDN IP 係 `172.67.144.125`，Xray 通過 WebSocket + TLS 連接呢個 IP，Cloudflare 負責路由到眞實代理伺服器。唔好胡亂 hardcode 其他 IP。
 
 ### Q: SSH 連接 `192.168.31.1` timeout？
 
@@ -330,11 +330,11 @@ xiaomi-tproxy/
 
 | 欄位 | 說明 |
 |------|------|
-| `address` | 代理伺服器域名（如 `jp.xlin.eu.cc`） |
+| `address` | 代理伺服器域名（如 `[YOUR_SERVER_DOMAIN]`） |
 | `port` | 代理伺服器端口（通常 `443`） |
 | `id` | VLESS UUID |
 | `path` | WebSocket 路徑 |
 | `Host` / `serverName` | TLS ServerName，須與 address 相同 |
 | `domains` | 代理的域名列表 |
 
-修改後執行 `./scripts/deploy.sh 192.168.1.59 qwerty66` 重新部署。
+修改後執行 `./scripts/deploy.sh 192.168.1.59 [ROUTER_PASSWORD]` 重新部署。

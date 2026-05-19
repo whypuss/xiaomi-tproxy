@@ -6,7 +6,7 @@
 # 用法:
 #   ./verify.sh [router_ip] [ssh_password]
 # 示例:
-#   ./verify.sh 192.168.1.59 qwerty66
+#   ./verify.sh 192.168.1.59 [ROUTER_PASSWORD]
 #
 # 注意: 從 Mac 執行，通過 SSH 檢查路由器狀態
 
@@ -30,7 +30,7 @@ XRAY_PORT=12346
 
 usage() {
     echo "用法: $0 [router_ip] [ssh_password]"
-    echo "示例: $0 192.168.1.59 qwerty66"
+    echo "示例: $0 192.168.1.59 [ROUTER_PASSWORD]"
     exit 1
 }
 

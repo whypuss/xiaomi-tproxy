@@ -12,7 +12,7 @@ git clone https://github.com/whypuss/xiaomi-tproxy.git
 cd xiaomi-tproxy
 
 # 一鍵部署 config（用 base64+SSH，唔用 scp）
-./scripts/deploy.sh 192.168.1.59 qwerty66
+./scripts/deploy.sh 192.168.1.59 [ROUTER_PASSWORD]
 ```
 
 ## 踩坑紀錄（v2.0.0）

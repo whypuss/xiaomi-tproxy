@@ -36,7 +36,7 @@ ssh -o HostKeyAlgorithms=+ssh-rsa root@192.168.1.59
 > ssh -o HostKeyAlgorithms=+ssh-rsa root@192.168.31.1
 > ```
 >
-> 中途詢問 `(y/n)` 時輸入 `y`，然後輸入 Root 密碼（預設：`qwerty66`）
+> 中途詢問 `(y/n)` 時輸入 `y`，然後輸入 Root 密碼（預設：`[ROUTER_PASSWORD]`）
 
 看到這個就是成功：
 

@@ -78,7 +78,7 @@ cd xiaomi-tproxy
 
 # Edit config/xray-config.json first (change VLESS node, proxy domains)
 # Then deploy:
-./scripts/deploy.sh 192.168.1.59 qwerty66
+./scripts/deploy.sh 192.168.1.59 [ROUTER_PASSWORD]
 ```
 
 deploy.sh uses base64 + SSH (NOT scp — AX9000 lacks sftp-server).
@@ -87,7 +87,7 @@ deploy.sh uses base64 + SSH (NOT scp — AX9000 lacks sftp-server).
 
 ```bash
 # Health check from Mac:
-./scripts/verify.sh 192.168.1.59 qwerty66
+./scripts/verify.sh 192.168.1.59 [ROUTER_PASSWORD]
 
 # Must see ESTABLISHED connection to proxy server:
 ssh root@192.168.1.59 -o HostKeyAlgorithms=+ssh-rsa \
@@ -110,7 +110,7 @@ curl https://chatgpt.com    # Should load
 | domain routing only matches domains, not IPs | Add `"domainStrategy": "Always"` to config |
 | Mac cross-subnet SSH to 192.168.31.1 blocked | Use `ssh root@192.168.1.59` (WAN IP) |
 | Two xray processes collide | `killall -9 xray` before deploying |
-| jp.xlin.eu.cc resolves to Cloudflare CDN | Normal — xray uses SNI, not hardcoded IP |
+| [YOUR_SERVER_DOMAIN] resolves to Cloudflare CDN | Normal — xray uses SNI, not hardcoded IP |
 
 ## File Structure
 
