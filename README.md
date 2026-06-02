@@ -3,9 +3,9 @@
 **使用官方開發版固件不刷第三方固件，docker部署。
 
 **適用型號:** 小米 AX9000（Linux 4.9, ARM64, Docker）<br>
-**最後更新:** 2026-05-19<br>
-**狀態:** ✅ 實測通過 — Xray 透明代理正常運行，WiFi clients 流量行 proxy<br>
-**最新 commit:** `3c53c24`
+**最後更新:** 2026-06-02<br>
+**狀態:** ✅ 實測通過 — Xray 透明代理正常運行，xray RAM 29MB，fd limit 65535<br>
+**最新 commit:** `d4cd8e6`
 
 > 🤖 **AI Agent 部署提示詞（複製呢段）：**
 > ```
@@ -18,9 +18,11 @@
 ---
 
 **實測確認:**
-- Xray → proxy server (`172.67.144.125:443`) ESTABLISHED ✅
+- Xray → proxy server (`[Cloudflare CDN IP]:443`) ESTABLISHED ✅
 - WiFi clients (`192.168.31.x`) → xray port 12346 → proxy ✅
 - `domainStrategy: "Always"` 確保 IP 級別 routing ✅
+- xray 內存 RSS: 1.265GB → 29MB（減 97.7%）✅ — `policy.levels.0.bufferSize: 4` 解決 buffer pool 累積
+- xray fd limit: 1024 → 65535 ✅ — `docker exec --ulimit nofile=65535:65535` 解決 `accept4: too many open files`
 
 ---
 
