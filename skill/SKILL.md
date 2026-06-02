@@ -1,6 +1,6 @@
 ---
 name: xiaomi-tproxy
-version: "2.2.0"
+version: "2.3.0"
 description: AX9000 透明代理部署 — Xray inside Docker, domain-based routing
 ---
 
@@ -24,9 +24,10 @@ sh: setsid: not found
 - 如果同時有 host-level xray 和 container-level xray，會有衝突
 - **解决:** `killall -9 xray` 清理晒所有舊进程，先重新部署
 
-### 4. `domainStrategy: "Always"` 缺失
-- 舊版 routing 只匹配域名，唔匹配 IP
-- **解决:** config 的 routing 部分一定要加 `"domainStrategy": "Always"`
+### 4. `domainStrategy: "IPIfNonMatch"` 缺失
+- 預設 routing 只匹配域名，唔匹配 IP；用 `IPIfNonMatch` 令已係 IP 嘅 connection 先比對 domain rule，唔 match 先用內置 DNS resolve
+- **解决:** config 的 routing 部分一定要加 `"domainStrategy": "IPIfNonMatch"`
+- 注意: `"Always"` 會強制將每個 IP 反查做域名，喺 transparent proxy 場景（多數 connection 入到嚟已經係 IP）好耗資源 — **唔好用** `Always`
 
 ### 5. `scp` 失敗
 ```
@@ -69,6 +70,26 @@ ash: /usr/libexec/sftp-server: not found
 - log 出現 `failed to accepted raw connections > accept tcp [::]:12346: accept4: too many open files`
 - **解决:** `docker exec` 加 `--ulimit nofile=65535:65535` 設 container 內 fd 上限
 - 注意: host 嘅 `ulimit -n` 唔會 inheritance 入 container 內 xray，必須 docker exec 設
+
+### 13. IPv6 outgoing 被 firewall block → xray outbound 100% 失敗
+- AX9000 IPv6 outgoing 默認 block（用 `ping6 2606:4700:...` 確認 `sendto: Permission denied`）
+- 但 xray Go resolver 預設 IPv6 first (RFC 6724)，會 dial IPv6 address，撞牆
+- 症狀: xray log 出現 `dial tcp [2606:...]:443: connect: permission denied`，outbound ESTABLISHED = 0，proxy 完全唔 work
+- **解决:** xray config 頂層加：
+  ```json
+  "dns": {
+    "servers": ["1.1.1.1", "8.8.8.8"],
+    "queryStrategy": "UseIPv4"
+  }
+  ```
+  強制 xray 內置 resolver 只用 IPv4，跳過 IPv6 dial
+
+### 14. `dns.servers` 必須顯式設
+- 用咗 `queryStrategy: UseIPv4` 一定要配合顯式 `servers` 陣列
+- xray 唔會 fall back 落 system DNS（唔似 Go 默認）
+- 唔寫 `servers` 嘅話 `queryStrategy` 設定會被忽略，仲用緊 Go 默認 IPv6-first
+- **解决:** 上面坑點 13 嘅 json block 一定要包含 `servers` 兩條 entry（最少 1 條 IPv4）
+- 推薦: Cloudflare `1.1.1.1` + Google `8.8.8.8` 互補
 
 ---
 
