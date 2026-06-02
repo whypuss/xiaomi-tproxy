@@ -1,6 +1,6 @@
 ---
 name: xiaomi-tproxy
-version: "2.3.0"
+version: "2.4.0"
 description: AX9000 透明代理部署 — Xray inside Docker, domain-based routing
 ---
 
@@ -90,6 +90,18 @@ ash: /usr/libexec/sftp-server: not found
 - 唔寫 `servers` 嘅話 `queryStrategy` 設定會被忽略，仲用緊 Go 默認 IPv6-first
 - **解决:** 上面坑點 13 嘅 json block 一定要包含 `servers` 兩條 entry（最少 1 條 IPv4）
 - 推薦: Cloudflare `1.1.1.1` + Google `8.8.8.8` 互補
+
+### 15. `domain:X` rule 係 subdomain match (唔係 exact match)
+- xray 嘅 `domain:googleapis.com` 唔淨係 match `googleapis.com`，**會 match 所有 `*.googleapis.com`** 子域
+- 真實 case: 寫咗 `domain:googleapis.com` 想 catch Gemini API (`generativelanguage.googleapis.com`)，**意外 catch 咗 `youtube.googleapis.com`**
+- 症狀: YouTube / 其他 Google 服務 喺手機出 YouTube backend API 期間被 proxy 出去 (Cloudflare 任何cast IP 喺 IP geo database 顯示外國)
+- 路由器端 routing log 唔易即時發現 (info level log 容易被 warning 級別遮蔽)
+- **解决:** 用**精準 endpoint** 而唔係 broad parent domain：
+  - ❌ `domain:googleapis.com` (catch 所有子域)
+  - ✅ `domain:generativelanguage.googleapis.com` (只 catch Gemini API)
+  - ✅ `domain:aiplatform.googleapis.com` (Vertex AI)
+- 設計 routing rule 嘅原則: **bottom-up 唔係 top-down**，由 specific service endpoint 開始加
+- xray 仲有 `domainprefix:` 為前綴 match (e.g. `domainprefix:youtube` 會 match `youtube.com` / `youtube.googleapis.com`)，用之前確認 syntax
 
 ---
 
