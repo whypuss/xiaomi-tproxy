@@ -74,7 +74,6 @@
           "domain:aistudio.google.com",
           "domain:ai.google.dev",
           "domain:makersuite.google.com",
-          "domain:googleapis.com",
           "domain:bard.google.com",
           "domain:gemini.google.com",
           "domain:copilot.microsoft.com",
