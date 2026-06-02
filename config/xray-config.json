@@ -1,5 +1,13 @@
 {
   "log": { "loglevel": "warning" },
+  "policy": {
+    "levels": {
+      "0": {
+        "bufferSize": 4,
+        "connIdle": 60
+      }
+    }
+  },
   "inbounds": [
     {
       "port": 12346,

@@ -1,6 +1,6 @@
 ---
 name: xiaomi-tproxy
-version: "2.1.0"
+version: "2.2.0"
 description: AX9000 透明代理部署 — Xray inside Docker, domain-based routing
 ---
 
@@ -55,9 +55,20 @@ ash: /usr/libexec/sftp-server: not found
 - **解决:** 每次 SSH 後 `DOCKER=/mnt/docker_disk/mi_docker/docker-binaries/docker`
 
 ### 10. [YOUR_SERVER_DOMAIN] DNS
-- 解析到 `172.67.144.125`（Cloudflare CDN）— 係正常！
+- 解析到 `[Cloudflare CDN IP]`（CDN 通用 IP，唔係真實 origin）— 係正常！
 - xray WebSocket + TLS 通過 Cloudflare CDN 正常連接
 - **唔好** 胡亂 hardcode 其他 IP
+
+### 11. xray 內存累積（1GB+ leak）
+- 預設每個 connection 512KB buffer pool，長時間運行可累積 1GB+ RSS
+- **解决:** 加 `policy.levels.0.bufferSize: 4` 將每 connection buffer 減到 4KB
+- 預期效果: 1.265GB → ~30MB（減 97%）
+
+### 12. fd limit 1024 爆 (accept4: too many open files)
+- xray 預設 1024 fd，LAN client 一波訪問就爆
+- log 出現 `failed to accepted raw connections > accept tcp [::]:12346: accept4: too many open files`
+- **解决:** `docker exec` 加 `--ulimit nofile=65535:65535` 設 container 內 fd 上限
+- 注意: host 嘅 `ulimit -n` 唔會 inheritance 入 container 內 xray，必須 docker exec 設
 
 ---
 
@@ -73,13 +84,20 @@ cd ~/.kimaki/projects/xiaomi-tproxy
 ```bash
 # 確認 proxy 連接
 netstat -tnp | grep xray | grep ESTABLISHED | grep -v "192.168"
-# 預期: 192.168.1.59:xxxx -> 172.67.144.125:443 ESTABLISHED
+# 預期: [ROUTER_LAN_IP]:xxxx -> [Cloudflare CDN IP]:443 ESTABLISHED
 
 # 確認 xray 運行
 ps | grep xray | grep -v grep
 
 # 確認 port 12346 監聽
 netstat -tlnp | grep 12346
+
+# 確認 xray 內存（裝咗 bufferSize: 4 應該 < 100MB）
+XPID=$(pidof xray | awk '{print $1}')
+[ -n "$XPID" ] && cat /proc/$XPID/status | grep VmRSS
+
+# 確認 xray fd 上限（裝咗 --ulimit 應該 = 65535）
+[ -n "$XPID" ] && cat /proc/$XPID/limits | grep "open files"
 ```
 
 ## 調整 Proxy 域名清單

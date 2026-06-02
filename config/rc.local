@@ -19,8 +19,9 @@ sleep 3
 $DOCKER exec openwrt killall xray 2>/dev/null || true
 sleep 1
 
-# 啟動 xray — docker exec -d 本身已 detached，唔需要 setsid
-$DOCKER exec -d openwrt xray run -c /etc/xray/config.json
+# 提高 fd limit — 預設 1024 爆 (accept4: too many open files)
+# 用 docker exec --ulimit 設置 container 內 fd 上限
+$DOCKER exec -d --ulimit nofile=65535:65535 openwrt xray run -c /etc/xray/config.json
 
 sleep 3
 
