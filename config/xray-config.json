@@ -1,5 +1,9 @@
 {
   "log": { "loglevel": "warning" },
+  "dns": {
+    "servers": ["1.1.1.1", "8.8.8.8"],
+    "queryStrategy": "UseIPv4"
+  },
   "policy": {
     "levels": {
       "0": {
@@ -46,7 +50,7 @@
     { "protocol": "block", "tag": "block" }
   ],
   "routing": {
-    "domainStrategy": "Always",
+    "domainStrategy": "IPIfNonMatch",
     "rules": [
       {
         "type": "field",
