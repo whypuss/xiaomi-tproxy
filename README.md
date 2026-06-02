@@ -202,10 +202,10 @@ ssh root@192.168.1.59 -o HostKeyAlgorithms=+ssh-rsa '
 
 預期輸出（範例）：
 ```
-tcp  0  0  192.168.1.59:4xxxx  172.67.144.125:443  ESTABLISHED  xray
+tcp  0  0  192.168.1.59:4xxxx  [Cloudflare CDN IP]:443  ESTABLISHED  xray
 ```
 
-`172.67.144.125` 係 `[YOUR_SERVER_DOMAIN]` 的 Cloudflare CDN IP，呢個係正常！Xray 通過 Cloudflare CDN 連接代理伺服器，TLS 完整加密。
+`[Cloudflare CDN IP]` 係 `[YOUR_SERVER_DOMAIN]` 的 Cloudflare CDN IP，呢個係正常！Xray 通過 Cloudflare CDN 連接代理伺服器，TLS 完整加密。
 
 ### Step 6：測試透明代理（AI 網站）
 
@@ -269,9 +269,9 @@ RCEOF
 2. 確認 xray 正在運行：`docker exec openwrt ps | grep xray`
 3. 檢查 xray log：`docker exec openwrt cat /tmp/xray.log | grep -i error`
 
-### Q: `[YOUR_SERVER_DOMAIN]` DNS 解析到 `172.67.144.125`，呢個係正常的嗎？
+### Q: `[YOUR_SERVER_DOMAIN]` DNS 解析到 `[Cloudflare CDN IP]`，呢個係正常的嗎？
 
-係正常的。`[YOUR_SERVER_DOMAIN]` 使用 Cloudflare CDN，CDN IP 係 `172.67.144.125`，Xray 通過 WebSocket + TLS 連接呢個 IP，Cloudflare 負責路由到眞實代理伺服器。唔好胡亂 hardcode 其他 IP。
+係正常的。`[YOUR_SERVER_DOMAIN]` 使用 Cloudflare CDN，CDN IP 係 `[Cloudflare CDN IP]`，Xray 通過 WebSocket + TLS 連接呢個 IP，Cloudflare 負責路由到眞實代理伺服器。唔好胡亂 hardcode 其他 IP。
 
 ### Q: SSH 連接 `192.168.31.1` timeout？
 
