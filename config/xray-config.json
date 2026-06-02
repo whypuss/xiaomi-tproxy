@@ -55,7 +55,7 @@
       {
         "type": "field",
         "outboundTag": "proxy",
-        "domains": [
+        "domain": [
           "keyword:chatgpt",
           "keyword:claude",
           "keyword:anthropic",
@@ -65,22 +65,26 @@
           "domain:chatgpt.com",
           "domain:openai.com",
           "domain:api.openai.com",
+          "domain:openaicom.imgix.net",
           "domain:claude.ai",
           "domain:platform.claude.ai",
+          "domain:code.claude.ai",
           "domain:anthropic.com",
           "domain:api.anthropic.com",
           "domain:aistudio.google.com",
           "domain:ai.google.dev",
+          "domain:makersuite.google.com",
           "domain:googleapis.com",
-          "domain:gemini.google.com",
           "domain:bard.google.com",
+          "domain:gemini.google.com",
           "domain:copilot.microsoft.com",
           "domain:perplexity.ai",
-          "domain:x.ai",
           "domain:x.com",
+          "domain:grok.com",
           "domain:notebooklm.google.com",
           "domain:ip.sb",
-          "domain:ipinfo.io"
+          "domain:ipinfo.io",
+          "domain:x.ai"
         ]
       },
       { "type": "field", "network": "tcp", "outboundTag": "direct" }
