@@ -204,7 +204,7 @@ cat > /tmp/xray_config.json << CONFIGEOF
           "domain:api.anthropic.com", "domain:aistudio.google.com",
           "domain:ai.google.dev", "domain:googleapis.com",
           "domain:gemini.google.com", "domain:bard.google.com",
-          "domain:copilot.microsoft.com", "domain:deepseek.com",
+          "domain:copilot.microsoft.com",
           "domain:perplexity.ai", "domain:x.ai", "domain:x.com",
           "domain:notebooklm.google.com", "domain:ip.sb", "domain:ipinfo.io"
         ]

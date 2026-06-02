@@ -15,7 +15,7 @@ One-command transparent proxy on Xiaomi AX9000/AX3600/AX3200/AX1800 routers. All
 ## Features
 
 - **Zero-config clients** — just connect to WiFi
-- **AI routing** — ChatGPT, Claude, Gemini, DeepSeek, Perplexity, X AI, Grok
+- **AI routing** — ChatGPT, Claude, Gemini, Perplexity, X AI, Grok
 - **SNI sniffing** — extracts domain from TLS handshake for routing decisions
 - **QUIC blocking** — forces mobile apps to TCP
 - **Boot persistence** — via `/etc/rc.local`

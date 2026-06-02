@@ -315,7 +315,6 @@ xiaomi-tproxy/
 | ChatGPT | chatgpt.com, openai.com, api.openai.com |
 | Claude | claude.ai, platform.claude.ai, anthropic.com, api.anthropic.com |
 | Gemini | gemini.google.com, aistudio.google.com, ai.google.dev, googleapis.com |
-| DeepSeek | deepseek.com |
 | Perplexity | perplexity.ai |
 | X AI | x.ai, x.com |
 | Grok | groq.com |
