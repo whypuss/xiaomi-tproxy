@@ -20,7 +20,7 @@
 **實測確認:**
 - Xray → proxy server (`[Cloudflare CDN IP]:443`) ESTABLISHED ✅
 - WiFi clients (`192.168.31.x`) → xray port 12346 → proxy ✅
-- `domainStrategy: "Always"` 確保 IP 級別 routing ✅
+- `domainStrategy: "IPIfNonMatch"` 確保 IP 級別 routing ✅
 - xray 內存 RSS: 1.265GB → 29MB（減 97.7%）✅ — `policy.levels.0.bufferSize: 4` 解決 buffer pool 累積
 - xray fd limit: 1024 → 65535 ✅ — `docker exec --ulimit nofile=65535:65535` 解決 `accept4: too many open files`
 
@@ -316,7 +316,7 @@ xiaomi-tproxy/
 |------|------|
 | ChatGPT | chatgpt.com, openai.com, api.openai.com |
 | Claude | claude.ai, platform.claude.ai, anthropic.com, api.anthropic.com |
-| Gemini | gemini.google.com, aistudio.google.com, ai.google.dev, googleapis.com |
+| Gemini | gemini.google.com, aistudio.google.com, ai.google.dev |
 | Perplexity | perplexity.ai |
 | X AI | x.ai, x.com |
 | Grok | groq.com |

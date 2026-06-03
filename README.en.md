@@ -107,7 +107,7 @@ curl https://chatgpt.com    # Should load
 | `setsid` not found in container | Use `docker exec -d` (already detached) |
 | `scp` fails — no sftp-server | Use base64 + SSH (deploy.sh handles this) |
 | ash heredoc `$VAR` substitution | Use `docker cp` instead |
-| domain routing only matches domains, not IPs | Add `"domainStrategy": "Always"` to config |
+| domain routing only matches domains, not IPs | Add `"domainStrategy": "IPIfNonMatch"` to config |
 | Mac cross-subnet SSH to 192.168.31.1 blocked | Use `ssh root@192.168.1.59` (WAN IP) |
 | Two xray processes collide | `killall -9 xray` before deploying |
 | [YOUR_SERVER_DOMAIN] resolves to Cloudflare CDN | Normal — xray uses SNI, not hardcoded IP |
