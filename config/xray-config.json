@@ -1,8 +1,6 @@
 {
-  "log": { "loglevel": "warning" },
-  "dns": {
-    "servers": ["1.1.1.1", "8.8.8.8"],
-    "queryStrategy": "UseIPv4"
+  "log": {
+    "loglevel": "warning"
   },
   "policy": {
     "levels": {
@@ -15,10 +13,18 @@
   "inbounds": [
     {
       "port": 12346,
-      "listen": "0.0.0.0",
       "protocol": "dokodemo-door",
-      "settings": { "network": "tcp", "followRedirect": true },
-      "sniffing": { "enabled": true, "destOverride": ["http", "tls"] },
+      "settings": {
+        "network": "tcp",
+        "followRedirect": true
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls"
+        ]
+      },
       "tag": "transparent"
     }
   ],
@@ -26,18 +32,26 @@
     {
       "protocol": "vless",
       "settings": {
-        "vnext": [{
-          "address": "[YOUR_SERVER_DOMAIN]",
-          "port": 443,
-          "users": [{ "id": "[YOUR_UUID]", "encryption": "none" }]
-        }]
+        "vnext": [
+          {
+            "address": "[YOUR_SERVER_DOMAIN]",
+            "port": 443,
+            "users": [
+              {
+                "id": "[YOUR_UUID]",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
       },
       "streamSettings": {
-        "network": "ws",
+        "network": "xhttp",
         "security": "tls",
-        "wsSettings": {
+        "xhttpSettings": {
           "path": "/",
-          "headers": { "Host": "[YOUR_SERVER_DOMAIN]" }
+          "host": "[YOUR_SERVER_DOMAIN]",
+          "mode": "auto"
         },
         "tlsSettings": {
           "serverName": "[YOUR_SERVER_DOMAIN]",
@@ -46,15 +60,16 @@
       },
       "tag": "proxy"
     },
-    { "protocol": "freedom", "tag": "direct" },
-    { "protocol": "block", "tag": "block" }
+    {
+      "protocol": "freedom",
+      "tag": "direct"
+    }
   ],
   "routing": {
     "domainStrategy": "IPIfNonMatch",
     "rules": [
       {
         "type": "field",
-        "outboundTag": "proxy",
         "domain": [
           "keyword:chatgpt",
           "keyword:claude",
@@ -77,16 +92,40 @@
           "domain:bard.google.com",
           "domain:gemini.google.com",
           "domain:copilot.microsoft.com",
+          "domain:deepseek.com",
           "domain:perplexity.ai",
           "domain:x.com",
           "domain:grok.com",
           "domain:notebooklm.google.com",
+          "domain:a-cdn.anthropic.com",
+          "domain:cdn.anthropic.com",
+          "domain:images.anthropic.com",
+          "domain:auth.anthropic.com",
+          "domain:clerk.anthropic.com",
+          "domain:www.claude.ai",
+          "domain:app.claude.ai",
+          "domain:sentry.io",
+          "domain:suffix:anthropic.com",
+          "domain:suffix:claude.ai",
+          "domain:suffix:clerk.accounts.dev",
+          "domain:suffix:anthropic.com.edgesuite.net",
           "domain:ip.sb",
-          "domain:ipinfo.io",
-          "domain:x.ai"
-        ]
+          "domain:ipinfo.io"
+        ],
+        "outboundTag": "proxy"
       },
-      { "type": "field", "network": "tcp", "outboundTag": "direct" }
+      {
+        "type": "field",
+        "network": "tcp",
+        "outboundTag": "direct"
+      }
     ]
+  },
+  "dns": {
+    "servers": [
+      "1.1.1.1",
+      "8.8.8.8"
+    ],
+    "queryStrategy": "UseIPv4"
   }
 }
