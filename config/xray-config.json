@@ -26,15 +26,6 @@
         ]
       },
       "tag": "transparent"
-    },
-    {
-      "listen": "127.0.0.1",
-      "port": 10085,
-      "protocol": "dokodemo-door",
-      "settings": {
-        "address": "127.0.0.1"
-      },
-      "tag": "api"
     }
   ],
   "outbounds": [
@@ -72,22 +63,11 @@
     {
       "protocol": "freedom",
       "tag": "direct"
-    },
-    {
-      "protocol": "blackhole",
-      "tag": "api"
     }
   ],
   "routing": {
     "domainStrategy": "IPIfNonMatch",
     "rules": [
-      {
-        "inboundTag": [
-          "api"
-        ],
-        "outboundTag": "api",
-        "type": "field"
-      },
       {
         "type": "field",
         "domain": [
@@ -147,11 +127,5 @@
       "8.8.8.8"
     ],
     "queryStrategy": "UseIPv4"
-  },
-  "api": {
-    "tag": "api",
-    "services": [
-      "StatsService"
-    ]
   }
 }
